@@ -362,7 +362,64 @@ function Settings({ onOpenSetup }: { onOpenSetup: () => void }) {
           </a>
         </div>
       </section>
+      <SupportKoriWidget />
     </>
+  );
+}
+
+function SupportKoriWidget() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    function closeWidget(event: MessageEvent) {
+      if (event.origin === 'https://www.supportkori.com' && event.data === 'close-sk-widget') {
+        setIsOpen(false);
+      }
+    }
+
+    window.addEventListener('message', closeWidget);
+    return () => window.removeEventListener('message', closeWidget);
+  }, []);
+
+  return (
+    <div>
+      <div
+        id="supportkori-panel"
+        className={`${styles.supportPanel} ${isOpen ? styles.supportPanelOpen : ''}`}
+        aria-hidden={!isOpen}
+      >
+        <iframe
+          className={styles.supportFrame}
+          src="https://www.supportkori.com/widget/montasim"
+          title="Support montasim"
+          allow="payment"
+        />
+      </div>
+      <button
+        type="button"
+        className={styles.supportButton}
+        aria-controls="supportkori-panel"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+          <line x1="6" y1="1" x2="6" y2="4" />
+          <line x1="10" y1="1" x2="10" y2="4" />
+          <line x1="14" y1="1" x2="14" y2="4" />
+        </svg>
+        <span>Support montasim</span>
+      </button>
+    </div>
   );
 }
 

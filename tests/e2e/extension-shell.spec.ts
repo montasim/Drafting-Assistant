@@ -55,6 +55,15 @@ test('side panel starts with a setup-safe state', async () => {
     'href',
     'https://www.linkedin.com/in/montasim/',
   );
+  const supportButton = page.getByRole('button', { name: 'Support montasim' });
+  await expect(supportButton).toBeVisible();
+  await expect(supportButton).toHaveAttribute('aria-expanded', 'false');
+  await supportButton.click();
+  await expect(supportButton).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByTitle('Support montasim')).toHaveAttribute(
+    'src',
+    'https://www.supportkori.com/widget/montasim',
+  );
 });
 
 test('packaged content script extracts the obfuscated semantic feed layout', async () => {

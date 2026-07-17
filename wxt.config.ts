@@ -10,6 +10,10 @@ export default defineConfig({
     short_name: 'Drafting AI',
     description: 'Create professional, evidence-bound response drafts from user-selected posts.',
     minimum_chrome_version: '120',
+    content_security_policy: {
+      extension_pages:
+        "script-src 'self'; object-src 'self'; frame-src https://supportkori.com https://www.supportkori.com",
+    },
     permissions: ['contextMenus', 'scripting', 'sidePanel', 'storage'],
     optional_host_permissions: e2eLinkedInPermission ? [] : ['https://www.linkedin.com/*'],
     host_permissions: [
