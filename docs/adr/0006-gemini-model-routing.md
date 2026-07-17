@@ -1,7 +1,7 @@
 ---
-status: accepted
+status: superseded by ADR-0017
 ---
 
 # Use a narrow Gemini-only model route
 
-The extension will use stable `gemini-2.5-flash` for drafting and Profile PDF processing. It may try `gemini-2.5-flash-lite` once only when the primary request receives an explicit quota or rate-limit response. It will not retry after an ambiguous timeout, network failure, authentication failure, or invalid response. No other AI provider or paid-model route is included. Model availability and pricing remain controlled by Google, so the documented registry and consent copy must be reviewed when the route changes.
+The extension used stable `gemini-2.5-flash` for drafting and Profile PDF processing, with `gemini-2.5-flash-lite` as a one-time quota fallback. ADR-0017 supersedes this route after Google deprecated the 2.5 family and restricted Flash-Lite availability for new users.

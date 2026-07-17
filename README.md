@@ -15,7 +15,7 @@ The extension is intentionally manual: it never posts, replies, reacts, clicks, 
 - All visible, already-rendered comments and replies included in one provider request
 - Three strategies: professional insight, specific question, and support-and-extend
 - Gemini bring-your-own-key with session-only storage by default
-- Gemini 2.5 Flash with a rate-limit-only Flash-Lite fallback
+- Gemini 3.5 Flash with a rate-limit-only Gemini 3.1 Flash-Lite fallback
 - Optional engagement-profile import from the user's own LinkedIn Save-to-PDF
 - Latest 20 minimized outputs stored locally
 - No accounts, backend, analytics, advertisements, or remote telemetry
@@ -87,10 +87,10 @@ The model registry lives in `src/application/models.ts`:
 
 | Purpose     | Primary model      | Quota fallback          |
 | ----------- | ------------------ | ----------------------- |
-| Drafting    | `gemini-2.5-flash` | `gemini-2.5-flash-lite` |
-| Profile PDF | `gemini-2.5-flash` | `gemini-2.5-flash-lite` |
+| Drafting    | `gemini-3.5-flash` | `gemini-3.1-flash-lite` |
+| Profile PDF | `gemini-3.5-flash` | `gemini-3.1-flash-lite` |
 
-Credential checks list one model without generating content. Draft and profile generation call the Gemini `generateContent` REST endpoint directly and request JSON output. Provider output is validated locally before it is shown or stored. Flash-Lite is attempted only after Gemini explicitly returns a quota or rate-limit response; network errors, timeouts, authentication failures, and malformed responses never trigger a second generation.
+Both configured models support free-tier input and output usage; the extension does not route users to a paid-only model. Credential checks list one model without generating content. Draft and profile generation call the Gemini `generateContent` REST endpoint directly and request JSON output with minimal thinking. Provider output is validated locally before it is shown or stored. Gemini 3.1 Flash-Lite is attempted only after Gemini explicitly returns a quota or rate-limit response; network errors, timeouts, authentication failures, and malformed responses never trigger a second generation.
 
 ## Privacy and security
 

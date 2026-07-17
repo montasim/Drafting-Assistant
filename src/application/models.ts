@@ -1,12 +1,12 @@
 export const MODEL_REGISTRY = {
   drafting: {
-    primary: 'gemini-2.5-flash',
-    fallback: 'gemini-2.5-flash-lite',
+    primary: 'gemini-3.5-flash',
+    fallback: 'gemini-3.1-flash-lite',
     contextTokens: 1_048_576,
   },
   profile: {
-    primary: 'gemini-2.5-flash',
-    fallback: 'gemini-2.5-flash-lite',
+    primary: 'gemini-3.5-flash',
+    fallback: 'gemini-3.1-flash-lite',
     contextTokens: 1_048_576,
   },
 } as const;

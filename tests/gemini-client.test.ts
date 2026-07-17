@@ -100,13 +100,13 @@ describe('GeminiClient', () => {
 
     const result = await new GeminiClient().analyze('secret', context, null, defaultSettings);
     expect(result.drafts).toHaveLength(3);
-    expect(result.model).toBe('gemini-2.5-flash');
-    expect(requestedUrl).toContain('/models/gemini-2.5-flash:generateContent');
+    expect(result.model).toBe('gemini-3.5-flash');
+    expect(requestedUrl).toContain('/models/gemini-3.5-flash:generateContent');
     if (typeof capturedInit?.body !== 'string') throw new Error('Request body was not captured.');
     const request = JSON.parse(capturedInit.body) as Record<string, unknown>;
     expect(request.generationConfig).toMatchObject({
       responseMimeType: 'application/json',
-      thinkingConfig: { thinkingBudget: 0 },
+      thinkingConfig: { thinkingLevel: 'minimal' },
       responseSchema: {
         type: 'object',
         required: ['schemaVersion', 'summary', 'drafts', 'language'],
@@ -116,10 +116,12 @@ describe('GeminiClient', () => {
       },
     });
     expect(JSON.stringify(request.generationConfig)).not.toContain('"enum":[1]');
+    expect(request.generationConfig).not.toHaveProperty('temperature');
+    expect(JSON.stringify(request.generationConfig)).not.toContain('thinkingBudget');
     expect(new Headers(capturedInit.headers).get('x-goog-api-key')).toBe('secret');
   });
 
-  it('falls back to Flash-Lite only after an explicit quota response', async () => {
+  it('falls back to Gemini 3.1 Flash-Lite only after an explicit quota response', async () => {
     const urls: string[] = [];
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
       urls.push(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url);
@@ -138,10 +140,10 @@ describe('GeminiClient', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await new GeminiClient().analyze('secret', context, null, defaultSettings);
-    expect(result.model).toBe('gemini-2.5-flash-lite');
+    expect(result.model).toBe('gemini-3.1-flash-lite');
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(urls[0]).toContain('/models/gemini-2.5-flash:generateContent');
-    expect(urls[1]).toContain('/models/gemini-2.5-flash-lite:generateContent');
+    expect(urls[0]).toContain('/models/gemini-3.5-flash:generateContent');
+    expect(urls[1]).toContain('/models/gemini-3.1-flash-lite:generateContent');
   });
 
   it('does not fall back on authentication failure', async () => {

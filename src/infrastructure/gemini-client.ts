@@ -116,8 +116,7 @@ interface GenerationBody {
   generationConfig: {
     responseMimeType: 'application/json';
     maxOutputTokens: number;
-    temperature: number;
-    thinkingConfig: { thinkingBudget: 0 };
+    thinkingConfig: { thinkingLevel: 'minimal' };
     responseSchema: Record<string, unknown>;
   };
 }
@@ -162,7 +161,7 @@ export class GeminiClient implements AiProvider {
     const body: GenerationBody = {
       systemInstruction: { parts: [{ text: prompt.system }] },
       contents: [{ role: 'user', parts: [{ text: prompt.user }] }],
-      generationConfig: jsonGenerationConfig(2_400, 0.55, draftResponseSchema),
+      generationConfig: jsonGenerationConfig(2_400, draftResponseSchema),
     };
     const { content, model } = await this.generateWithFallback(
       apiKey,
@@ -196,7 +195,7 @@ export class GeminiClient implements AiProvider {
           ],
         },
       ],
-      generationConfig: jsonGenerationConfig(1_200, 0.25, profileResponseSchema),
+      generationConfig: jsonGenerationConfig(1_200, profileResponseSchema),
     };
     const { content } = await this.generateWithFallback(
       apiKey,
@@ -291,14 +290,12 @@ export class GeminiClient implements AiProvider {
 
 function jsonGenerationConfig(
   maxOutputTokens: number,
-  temperature: number,
   responseSchema: Record<string, unknown>,
 ): GenerationBody['generationConfig'] {
   return {
     responseMimeType: 'application/json',
     maxOutputTokens,
-    temperature,
-    thinkingConfig: { thinkingBudget: 0 },
+    thinkingConfig: { thinkingLevel: 'minimal' },
     responseSchema,
   };
 }
