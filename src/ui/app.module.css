@@ -422,14 +422,14 @@
   margin-top: 16px;
 }
 
-.privacyList>span {
+.privacyList > span {
   position: relative;
   display: grid;
   gap: 3px;
   padding-left: 27px;
 }
 
-.privacyList>span::before {
+.privacyList > span::before {
   position: absolute;
   top: 1px;
   left: 0;
@@ -846,7 +846,7 @@
   line-height: 1.6;
 }
 
-.list li+li {
+.list li + li {
   margin-top: 4px;
 }
 
@@ -936,7 +936,7 @@
   margin-bottom: 12px;
 }
 
-.profileSectionHeading>span {
+.profileSectionHeading > span {
   display: grid;
   width: 25px;
   height: 25px;
@@ -1069,7 +1069,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-
   .tabContent,
   .spinner {
     animation: none;
