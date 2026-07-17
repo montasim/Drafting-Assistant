@@ -44,11 +44,20 @@ function SidePanel() {
   return (
     <main className={styles.shell}>
       <header className={styles.header}>
-        <img className={styles.mark} src="/icon/logo-512.png" alt="" />
-        <div>
-          <h1 className={styles.title}>Drafting Assistant</h1>
-          <p className={styles.subtle}>Review before you copy</p>
+        <div className={styles.brandLockup}>
+          <div className={styles.markFrame}>
+            <img className={styles.mark} src="/icon/logo-512.png" alt="" />
+          </div>
+          <div>
+            <p className={styles.eyebrow}>Thoughtful by design</p>
+            <h1 className={styles.title}>Drafting Assistant</h1>
+            <p className={styles.headerPromise}>Sound like yourself—only sharper.</p>
+          </div>
         </div>
+        <span className={styles.privacyPill} title="Your drafts and settings stay on this device">
+          <span className={styles.statusDot} />
+          Local-first
+        </span>
       </header>
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List className={styles.tabs}>
@@ -62,13 +71,13 @@ function SidePanel() {
             Settings
           </Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content value="current">
+        <Tabs.Content className={styles.tabContent} value="current">
           <Current state={state} configured={configured} onOpenSetup={() => openSetup()} />
         </Tabs.Content>
-        <Tabs.Content value="history">
+        <Tabs.Content className={styles.tabContent} value="history">
           <History entries={history} onChange={setHistory} />
         </Tabs.Content>
-        <Tabs.Content value="settings">
+        <Tabs.Content className={styles.tabContent} value="settings">
           <Settings onOpenSetup={() => openSetup()} />
         </Tabs.Content>
       </Tabs.Root>
@@ -85,52 +94,94 @@ function Current({
   configured: boolean | null;
   onOpenSetup: () => void;
 }) {
-  if (configured === false)
+  if (configured === null)
     return (
-      <section className={styles.card}>
-        <h2>Finish setup</h2>
-        <p>
-          Connect Gemini, grant LinkedIn access, and review the privacy consent before analyzing a
-          post.
+      <section className={`${styles.card} ${styles.loadingCard}`} aria-live="polite">
+        <div className={styles.spinner} aria-hidden="true" />
+        <div>
+          <p className={styles.eyebrow}>Preparing your workspace</p>
+          <h2>Getting everything ready</h2>
+          <p className={styles.subtle}>Checking your private setup and recent work…</p>
+        </div>
+      </section>
+    );
+  if (!configured)
+    return (
+      <section className={`${styles.card} ${styles.heroCard}`}>
+        <p className={styles.eyebrow}>A few thoughtful choices</p>
+        <h2>Make every reply feel considered</h2>
+        <p className={styles.lead}>
+          Set your voice, connect Gemini, and choose exactly what the extension can access.
         </p>
-        <button className={styles.button} onClick={onOpenSetup}>
-          Open setup
+        <div className={styles.setupPreview} aria-label="Setup includes three private choices">
+          <span>
+            <b>1</b> Choose your privacy boundary
+          </span>
+          <span>
+            <b>2</b> Connect your free Gemini key
+          </span>
+          <span>
+            <b>3</b> Shape your writing voice
+          </span>
+        </div>
+        <button className={`${styles.button} ${styles.buttonWide}`} onClick={onOpenSetup}>
+          Complete private setup <span aria-hidden="true">→</span>
         </button>
+        <p className={styles.reassurance}>About 2 minutes · Nothing is ever posted for you</p>
       </section>
     );
   if (state.status === 'running')
     return (
-      <section className={styles.card}>
-        <div className={styles.row}>
-          <div className={styles.spinner} />
-          <div>
-            <h2>Creating drafts</h2>
-            <p className={styles.subtle}>{state.excerpt}</p>
-          </div>
+      <section className={`${styles.card} ${styles.loadingCard}`} aria-live="polite">
+        <div className={styles.spinner} aria-hidden="true" />
+        <div>
+          <p className={styles.eyebrow}>One conversation, three angles</p>
+          <h2>Finding the strongest response</h2>
+          <p className={styles.subtle}>Reading only the visible context around:</p>
+          <p className={styles.runningExcerpt}>“{state.excerpt}”</p>
         </div>
       </section>
     );
   if (state.status === 'error')
     return (
       <section className={styles.card}>
+        <div className={styles.stateIconError} aria-hidden="true">
+          !
+        </div>
+        <p className={styles.eyebrow}>Your activity stayed untouched</p>
+        <h2>Your draft wasn’t created</h2>
         <div className={styles.error}>
-          <strong>Analysis failed</strong>
+          <strong>What happened</strong>
           <p>{state.message}</p>
         </div>
-        <p className={styles.subtle}>No LinkedIn action was taken.</p>
+        <p className={styles.reassuranceLeft}>
+          No post, click, or LinkedIn action happened. Review your connection and try again when
+          you’re ready.
+        </p>
+        <button className={`${styles.button} ${styles.secondary}`} onClick={onOpenSetup}>
+          Review connection
+        </button>
       </section>
     );
   if (state.status === 'success') return <Result key={state.requestId} state={state} />;
   return (
     <section className={`${styles.card} ${styles.empty}`}>
-      <h2>Choose a conversation</h2>
-      <p>
-        On LinkedIn, right-click inside one visible post or comment and choose{' '}
+      <div className={styles.stateIcon} aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M5 4h14v12H8l-3 3V4Z" />
+          <path d="M8 8h8M8 12h5" />
+        </svg>
+      </div>
+      <p className={styles.eyebrow}>Ready when you are</p>
+      <h2>Start with a conversation worth joining</h2>
+      <p className={styles.leadCompact}>
+        On LinkedIn, right-click one visible post or comment and choose{' '}
         <strong>Analyze this post</strong>.
       </p>
-      <p className={styles.subtle}>
-        Only the selected post's visible text is processed. You always submit responses manually.
-      </p>
+      <div className={styles.trustRow}>
+        <span>Visible text only</span>
+        <span>You approve every word</span>
+      </div>
     </section>
   );
 }
@@ -139,78 +190,87 @@ function Result({ state }: { state: Extract<AnalysisState, { status: 'success' }
   const [drafts, setDrafts] = useState(() => state.result.drafts.map(({ text }) => text));
   return (
     <>
-      <section className={styles.card}>
+      <section className={`${styles.card} ${styles.analysisCard}`}>
         <div className={styles.between}>
+          <div>
+            <p className={styles.eyebrow}>Conversation brief</p>
+            <h2>What matters here</h2>
+          </div>
           <span className={styles.badge}>{state.context.responseTarget.type}</span>
-          <span className={styles.meta}>
-            {state.result.language} · {state.result.model}
-          </span>
         </div>
-        <h2 style={{ marginTop: 12 }}>Analysis</h2>
-        <p>{state.result.summary.overview}</p>
-        <strong className={styles.label}>Themes</strong>
+        <p className={styles.analysisOverview}>{state.result.summary.overview}</p>
+        <strong className={styles.label}>Signals worth responding to</strong>
         <ul className={styles.list}>
           {state.result.summary.themes.map((theme) => (
             <li key={theme}>{theme}</li>
           ))}
         </ul>
         {state.result.summary.uncertainties.length > 0 && (
-          <>
-            <strong className={styles.label}>Uncertainties</strong>
+          <div className={styles.insightBlock}>
+            <strong className={styles.label}>Keep in mind</strong>
             <ul className={styles.list}>
               {state.result.summary.uncertainties.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>
-          </>
+          </div>
         )}
         {state.result.summary.risks.length > 0 && (
-          <div className={styles.warning} style={{ marginTop: 12 }}>
+          <div className={styles.warning}>
+            <strong>Before you respond</strong>
             {state.result.summary.risks.map((risk) => (
-              <div key={`${risk.category}-${risk.description}`}>
-                <strong>
-                  {risk.severity} {risk.category}:
-                </strong>{' '}
-                {risk.description}
-              </div>
+              <p key={`${risk.category}-${risk.description}`}>
+                <b>{risk.severity}:</b> {risk.description}
+              </p>
             ))}
           </div>
         )}
+        <p className={styles.modelMeta}>
+          {state.result.language} · {state.result.model}
+        </p>
       </section>
-      <section className={styles.card}>
-        <h2>Draft set</h2>
-        {state.result.drafts.map((draft, index) => (
-          <div className={styles.draft} key={draft.strategy}>
-            <div className={styles.between}>
+      <div className={styles.sectionIntro}>
+        <div>
+          <p className={styles.eyebrow}>Three credible directions</p>
+          <h2>Choose the one that feels like you</h2>
+        </div>
+        <span className={styles.meta}>Edits save locally</span>
+      </div>
+      {state.result.drafts.map((draft, index) => (
+        <section className={`${styles.card} ${styles.draftCard}`} key={draft.strategy}>
+          <div className={styles.between}>
+            <div>
               <span className={styles.badge}>{labelStrategy(draft.strategy)}</span>
-              <span className={styles.meta}>{wordCount(drafts[index] ?? '')} words</span>
+              <p className={styles.strategyPromise}>{strategyPromise(draft.strategy)}</p>
             </div>
-            <textarea
-              className={styles.textarea}
-              value={drafts[index] ?? ''}
-              onChange={(event) => {
-                const next = [...drafts];
-                next[index] = event.target.value;
-                setDrafts(next);
-              }}
-              onBlur={(event) =>
-                void sendRuntimeMessage({
-                  type: 'history:update-draft',
-                  entryId: state.requestId,
-                  draftIndex: index,
-                  text: event.target.value,
-                })
-              }
-            />
-            <button
-              className={`${styles.button} ${styles.secondary}`}
-              onClick={() => void copyText(drafts[index] ?? '')}
-            >
-              Copy draft
-            </button>
+            <span className={styles.meta}>{wordCount(drafts[index] ?? '')} words</span>
           </div>
-        ))}
-      </section>
+          <textarea
+            className={styles.textarea}
+            aria-label={`${labelStrategy(draft.strategy)} draft`}
+            value={drafts[index] ?? ''}
+            onChange={(event) => {
+              const next = [...drafts];
+              next[index] = event.target.value;
+              setDrafts(next);
+            }}
+            onBlur={(event) =>
+              void sendRuntimeMessage({
+                type: 'history:update-draft',
+                entryId: state.requestId,
+                draftIndex: index,
+                text: event.target.value,
+              })
+            }
+          />
+          <div className={styles.draftActions}>
+            <span className={styles.reassuranceLeft}>
+              Review, refine, then copy when it’s yours.
+            </span>
+            <CopyButton text={drafts[index] ?? ''} label="Copy draft" />
+          </div>
+        </section>
+      ))}
     </>
   );
 }
@@ -229,28 +289,40 @@ function History({
   if (entries.length === 0)
     return (
       <section className={`${styles.card} ${styles.empty}`}>
-        <h2>No saved outputs</h2>
-        <p>The latest 20 analyses appear here without complete post text or discussion.</p>
+        <div className={styles.stateIcon} aria-hidden="true">
+          ↺
+        </div>
+        <p className={styles.eyebrow}>A private record of useful work</p>
+        <h2>Your draft library starts here</h2>
+        <p className={styles.leadCompact}>
+          Your latest 20 outputs appear here—without storing the full post or discussion.
+        </p>
       </section>
     );
   return (
     <>
-      <div className={styles.between} style={{ marginBottom: 12 }}>
-        <span className={styles.meta}>{entries.length} locally stored outputs</span>
-        <button className={`${styles.button} ${styles.danger}`} onClick={() => void clear()}>
+      <div className={styles.sectionIntro}>
+        <div>
+          <p className={styles.eyebrow}>Your private draft library</p>
+          <h2>
+            {entries.length} saved {entries.length === 1 ? 'conversation' : 'conversations'}
+          </h2>
+        </div>
+        <button
+          className={`${styles.button} ${styles.danger} ${styles.compact}`}
+          onClick={() => void clear()}
+        >
           Clear all
         </button>
       </div>
       {entries.map((entry) => (
-        <section className={styles.card} key={entry.id}>
+        <section className={`${styles.card} ${styles.historyCard}`} key={entry.id}>
           <div className={styles.between}>
             <span className={styles.badge}>{entry.responseTargetType}</span>
             <span className={styles.meta}>{new Date(entry.createdAt).toLocaleString()}</span>
           </div>
-          <p>
-            <strong>{entry.postExcerpt}</strong>
-          </p>
-          <p>{entry.summary.overview}</p>
+          <p className={styles.historyExcerpt}>“{entry.postExcerpt}”</p>
+          <p className={styles.historySummary}>{entry.summary.overview}</p>
           {entry.drafts.map((draft, index) => (
             <HistoryDraft entry={entry} draft={draft} index={index} key={draft.strategy} />
           ))}
@@ -261,7 +333,7 @@ function History({
               onChange(entries.filter(({ id }) => id !== entry.id));
             }}
           >
-            Delete
+            Remove from library
           </button>
         </section>
       ))}
@@ -289,19 +361,18 @@ function HistoryDraft({
   }
   return (
     <div className={styles.draft}>
-      <span className={styles.badge}>{labelStrategy(draft.strategy)}</span>
+      <div className={styles.between}>
+        <span className={styles.badge}>{labelStrategy(draft.strategy)}</span>
+        <span className={styles.meta}>{wordCount(text)} words</span>
+      </div>
       <textarea
         className={styles.textarea}
+        aria-label={`${labelStrategy(draft.strategy)} saved draft`}
         value={text}
         onChange={(event) => setText(event.target.value)}
         onBlur={() => void save()}
       />
-      <button
-        className={`${styles.button} ${styles.secondary}`}
-        onClick={() => void copyText(text)}
-      >
-        Copy
-      </button>
+      <CopyButton text={text} label="Copy" />
     </div>
   );
 }
@@ -317,32 +388,61 @@ function Settings({ onOpenSetup }: { onOpenSetup: () => void }) {
   }
   return (
     <>
-      <section className={styles.card}>
+      <section className={`${styles.card} ${styles.heroCardSoft}`}>
+        <p className={styles.eyebrow}>Tune the experience</p>
         <h2>Settings & privacy</h2>
-        <p>
-          Update the Gemini key, preferred language, engagement profile, consent, or LinkedIn access
-          from setup.
+        <p className={styles.leadCompact}>
+          Refine your voice, language, Gemini connection, and access choices whenever your needs
+          change.
         </p>
         <button className={styles.button} onClick={onOpenSetup}>
-          Open settings
+          Open settings <span aria-hidden="true">→</span>
         </button>
-        <hr style={{ border: 0, borderTop: '1px solid #e5eaee', margin: '20px 0' }} />
+      </section>
+      <section className={styles.card}>
+        <p className={styles.eyebrow}>Built around restraint</p>
+        <h2>Your control is the feature</h2>
+        <div className={styles.privacyList}>
+          <span>
+            <b>Selected context only</b>
+            <small>Only visible text around your right-click</small>
+          </span>
+          <span>
+            <b>Local by default</b>
+            <small>Preferences and recent drafts stay on your device</small>
+          </span>
+          <span>
+            <b>Manual by design</b>
+            <small>You review, copy, and publish every response</small>
+          </span>
+        </div>
+      </section>
+      <section className={styles.card}>
+        <p className={styles.eyebrow}>Useful when something feels off</p>
         <h3>Local diagnostics</h3>
         <p className={styles.subtle}>
-          Exports timestamps and error codes only—never keys, post content, drafts, profile, or
-          browsing history.
+          Copy a privacy-safe technical snapshot for troubleshooting. It never includes keys, post
+          content, drafts, your profile, or browsing history.
         </p>
         <button
           className={`${styles.button} ${styles.secondary}`}
           onClick={() => void exportDiagnostics()}
         >
-          Copy sanitized diagnostics
+          Copy safe diagnostics
         </button>
-        {message && <p className={styles.success}>{message}</p>}
+        {message && (
+          <p className={styles.success} role="status">
+            {message}
+          </p>
+        )}
       </section>
       <section className={styles.card}>
+        <p className={styles.eyebrow}>Independent and transparent</p>
         <h2>Developer</h2>
         <p className={styles.developerName}>{DEVELOPER.name}</p>
+        <p className={styles.subtle}>
+          Built for thoughtful professionals who value their own voice.
+        </p>
         <div className={styles.externalLinks}>
           <a
             className={`${styles.button} ${styles.secondary} ${styles.linkButton}`}
@@ -364,6 +464,33 @@ function Settings({ onOpenSetup }: { onOpenSetup: () => void }) {
       </section>
       <SupportKoriWidget />
     </>
+  );
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  async function handleCopy() {
+    try {
+      await copyText(text);
+      setCopyState('copied');
+      window.setTimeout(() => setCopyState('idle'), 1_800);
+    } catch {
+      setCopyState('error');
+      window.setTimeout(() => setCopyState('idle'), 1_800);
+    }
+  }
+
+  return (
+    <button
+      className={`${styles.button} ${styles.secondary} ${copyState === 'copied' ? styles.copied : ''}`}
+      onClick={() => void handleCopy()}
+      type="button"
+    >
+      <span aria-live="polite">
+        {copyState === 'copied' ? 'Copied ✓' : copyState === 'error' ? 'Try again' : label}
+      </span>
+    </button>
   );
 }
 
@@ -437,6 +564,11 @@ function labelStrategy(value: string) {
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+function strategyPromise(value: string) {
+  if (value === 'professional-insight') return 'Add a credible perspective';
+  if (value === 'specific-question') return 'Invite a meaningful reply';
+  return 'Build on the idea with care';
 }
 
 const root = document.getElementById('root');

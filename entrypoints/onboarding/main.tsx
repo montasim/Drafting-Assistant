@@ -13,6 +13,14 @@ import styles from '../../src/ui/app.module.css';
 
 type OnboardingStep = 1 | 2 | 3 | 4 | 5;
 
+const STEP_LABELS: Record<OnboardingStep, string> = {
+  1: 'Your boundaries',
+  2: 'LinkedIn access',
+  3: 'Gemini connection',
+  4: 'Your writing voice',
+  5: 'Draft preferences',
+};
+
 function Onboarding() {
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
   const [profile, setProfile] = useState<EngagementProfile>(createDefaultProfile());
@@ -204,16 +212,33 @@ function Onboarding() {
 
   return (
     <main className={styles.wide}>
-      <header className={styles.header}>
-        <img className={styles.mark} src="/icon/logo-512.png" alt="" />
-        <div>
-          <h1 className={styles.title}>Professional Drafting Assistant</h1>
-          <p className={styles.subtle}>Private-by-design LinkedIn response drafting</p>
+      <header className={`${styles.header} ${styles.onboardingHeader}`}>
+        <div className={styles.brandLockup}>
+          <div className={styles.markFrame}>
+            <img className={styles.mark} src="/icon/logo-512.png" alt="" />
+          </div>
+          <div>
+            <p className={styles.eyebrow}>Private setup · about 2 minutes</p>
+            <h1 className={styles.title}>Professional Drafting Assistant</h1>
+            <p className={styles.headerPromise}>Write with clarity. Respond with intent.</p>
+          </div>
         </div>
+        <span className={styles.privacyPill}>
+          <span className={styles.statusDot} /> Local-first
+        </span>
       </header>
+      <section className={styles.onboardingIntro}>
+        <h2>Set your voice once. Draft with confidence.</h2>
+        <p>
+          Five deliberate choices give you better drafts while keeping every meaningful action in
+          your hands.
+        </p>
+      </section>
       <div className={styles.wizardMeta}>
-        <span>Step {step} of 5</span>
-        <span>{step * 20}%</span>
+        <span>
+          Step {step} of 5 · {STEP_LABELS[step]}
+        </span>
+        <span>{step * 20}% complete</span>
       </div>
       <div
         className={styles.progressTrack}
@@ -227,61 +252,82 @@ function Onboarding() {
       </div>
 
       {step === 1 && (
-        <section className={styles.card}>
+        <section className={`${styles.card} ${styles.wizardCard}`}>
+          <p className={styles.eyebrow}>Trust starts with clear limits</p>
           <h2>1. Understand the boundary</h2>
-          <p>
-            This independent extension reads only text already visible in the exact LinkedIn post or
-            comment you right-click. It sends minimized, de-identified text to the Google Gemini API
-            and returns drafts for you to review and copy.
+          <p className={styles.leadCompact}>
+            You choose the conversation. The extension reads only visible text around that one
+            right-click, minimizes and de-identifies it, then asks Gemini for drafts you can edit.
           </p>
           <div className={styles.warning}>
-            <strong>Important:</strong> This is not affiliated with LinkedIn. Browser extensions and
-            AI-assisted engagement may create policy or account risk. The extension never posts,
-            clicks, expands comments, or takes LinkedIn actions for you.
+            <strong>The promise:</strong> The extension never posts, clicks, expands comments, or
+            takes LinkedIn actions for you. It is independent from LinkedIn, so you remain
+            responsible for how you use each draft.
           </div>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={settings.analysisConsent}
-              onChange={(event) =>
-                setSettings({ ...settings, analysisConsent: event.target.checked })
-              }
-            />
-            I consent to sending selected visible text and my engagement profile to Google Gemini. I
-            understand Google states that free-tier content may be used to improve its products.
-          </label>
-          <label className={styles.check}>
-            <input
-              type="checkbox"
-              checked={settings.riskAcknowledged}
-              onChange={(event) =>
-                setSettings({ ...settings, riskAcknowledged: event.target.checked })
-              }
-            />
-            I understand the extension cannot guarantee compliance or prevent LinkedIn account
-            action.
-          </label>
+          <div className={styles.choiceGroup}>
+            <label className={`${styles.check} ${styles.checkCard}`}>
+              <input
+                type="checkbox"
+                checked={settings.analysisConsent}
+                onChange={(event) =>
+                  setSettings({ ...settings, analysisConsent: event.target.checked })
+                }
+              />
+              I consent to sending selected visible text and my engagement profile to Google Gemini.
+              I understand Google states that free-tier content may be used to improve its products.
+            </label>
+            <label className={`${styles.check} ${styles.checkCard}`}>
+              <input
+                type="checkbox"
+                checked={settings.riskAcknowledged}
+                onChange={(event) =>
+                  setSettings({ ...settings, riskAcknowledged: event.target.checked })
+                }
+              />
+              I understand the extension cannot guarantee compliance or prevent LinkedIn account
+              action.
+            </label>
+          </div>
         </section>
       )}
 
       {step === 2 && (
-        <section className={styles.card}>
+        <section className={`${styles.card} ${styles.wizardCard}`}>
+          <p className={styles.eyebrow}>One permission. One purpose.</p>
           <h2>2. Grant site access</h2>
-          <p>
-            Access is optional and limited to <code>linkedin.com</code>. It is required for
-            right-click extraction.
+          <p className={styles.leadCompact}>
+            LinkedIn access is limited to recognizing the post or comment you explicitly select.
+            Nothing is read until you right-click.
           </p>
+          <div className={styles.scopeCard}>
+            <span className={styles.scopeIcon}>li</span>
+            <div>
+              <b>linkedin.com</b>
+              <small>Visible text extraction after your action</small>
+            </div>
+            <span className={permission ? styles.scopeGranted : styles.scopePending}>
+              {permission ? 'Connected' : 'Not connected'}
+            </span>
+          </div>
           <button className={styles.button} onClick={grantPermission} disabled={permission || busy}>
             {permission ? 'LinkedIn access granted' : 'Grant LinkedIn access'}
           </button>
+          <p className={styles.reassuranceLeft}>
+            You can revoke this permission from Chrome at any time.
+          </p>
         </section>
       )}
 
       {step === 3 && (
-        <section className={styles.card}>
+        <section className={`${styles.card} ${styles.wizardCard}`}>
+          <p className={styles.eyebrow}>Your key. Your quota. Your control.</p>
           <h2>3. Connect Gemini</h2>
+          <p className={styles.leadCompact}>
+            Bring your own Google AI Studio key. The extension uses free-tier Gemini models and
+            never routes you to a paid-only model.
+          </p>
           {hasCredential && !apiKey && (
-            <div className={styles.success}>A Gemini API key is already saved.</div>
+            <div className={styles.success}>Gemini is connected and ready.</div>
           )}
           <div className={styles.field}>
             <label htmlFor="api-key">Gemini API key</label>
@@ -292,32 +338,38 @@ function Onboarding() {
               autoComplete="off"
               value={apiKey}
               onChange={(event) => setApiKey(event.target.value)}
-              placeholder={hasCredential ? 'Enter a new key to replace the saved key' : 'Enter key'}
+              placeholder={
+                hasCredential ? 'Paste a new key to replace the saved key' : 'Paste your API key'
+              }
             />
+            <small className={styles.fieldHint}>
+              Validated directly with Google. Never included in diagnostics.
+            </small>
           </div>
-          <label className={styles.check}>
+          <label className={`${styles.check} ${styles.checkCard}`}>
             <input
               type="checkbox"
               checked={remember}
               onChange={(event) => setRemember(event.target.checked)}
             />
-            Remember on this device. This stores the key in extension-local storage until you clear
-            it.
+            Keep me signed in on this device. The key stays in extension-local storage until you
+            clear it.
           </label>
         </section>
       )}
 
       {step === 4 && (
-        <section className={styles.card}>
+        <section className={`${styles.card} ${styles.wizardCard}`}>
           <div className={styles.between}>
             <div>
+              <p className={styles.eyebrow}>Context makes the difference</p>
               <h2>4. Engagement profile</h2>
-              <p className={styles.subtle}>
-                Optionally upload your own LinkedIn Save-to-PDF, or edit the fields manually.
+              <p className={styles.leadCompact}>
+                Teach the assistant how you think so the first draft needs less rewriting.
               </p>
             </div>
             <label className={`${styles.button} ${styles.secondary}`}>
-              Import PDF
+              Import my PDF
               <input
                 hidden
                 type="file"
@@ -327,7 +379,7 @@ function Onboarding() {
               />
             </label>
           </div>
-          <label className={styles.check}>
+          <label className={`${styles.check} ${styles.checkCard}`}>
             <input
               type="checkbox"
               checked={ownProfilePdfConfirmed}
@@ -340,8 +392,12 @@ function Onboarding() {
       )}
 
       {step === 5 && (
-        <section className={styles.card}>
+        <section className={`${styles.card} ${styles.wizardCard}`}>
+          <p className={styles.eyebrow}>A reliable starting point, never a constraint</p>
           <h2>5. Draft preferences</h2>
+          <p className={styles.leadCompact}>
+            Choose the rhythm that suits most conversations. Every draft remains fully editable.
+          </p>
           <div className={styles.field}>
             <label htmlFor="length-mode">Default length</label>
             <select
@@ -380,14 +436,16 @@ function Onboarding() {
             Bangla drafts, and mixed content produces naturally mixed drafts.
           </p>
           <p className={styles.subtle}>
-            Drafts use Gemini 2.5 Flash. If Google explicitly reports a quota or rate-limit error,
-            the extension retries once with Gemini 2.5 Flash-Lite. It never retries after an
-            ambiguous timeout.
+            Drafts use free-tier Gemini 3.5 Flash. If Google explicitly reports a quota or
+            rate-limit error, the extension tries free-tier Gemini 3.1 Flash-Lite once. It never
+            retries after an ambiguous timeout.
           </p>
         </section>
       )}
       {status && (
         <div
+          role="status"
+          aria-live="polite"
           className={
             status.includes('complete') || status.includes('derived') || status.includes('granted')
               ? styles.success

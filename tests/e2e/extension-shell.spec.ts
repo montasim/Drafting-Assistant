@@ -41,7 +41,7 @@ test('side panel starts with a setup-safe state', async () => {
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/sidepanel.html`);
   await expect(page.getByRole('heading', { name: 'Drafting Assistant' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Open setup' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Complete private setup' })).toBeVisible();
   await page.getByRole('tab', { name: 'Settings' }).click();
   await expect(page.getByRole('heading', { name: 'Developer' })).toBeVisible();
   const settingsCard = page.getByRole('heading', { name: 'Settings & privacy' }).locator('..');
