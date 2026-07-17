@@ -39,6 +39,18 @@ The content script is built as an unlisted WXT script and registered only after 
 
 Key decisions are recorded in [`CONTEXT.md`](./CONTEXT.md) and [`docs/adr`](./docs/adr).
 
+## Install from GitHub
+
+Download the `chrome-unpacked.zip` file from the [latest GitHub release](https://github.com/montasim/Drafting-Assistant/releases/latest), then:
+
+1. Extract the ZIP to a permanent folder.
+2. Open `chrome://extensions` in Chrome.
+3. Enable **Developer mode**.
+4. Select **Load unpacked** and choose the extracted folder containing `manifest.json`.
+5. Complete onboarding, then reload LinkedIn tabs that were already open.
+
+Chrome loads the extension from that folder, so keep it after installation. GitHub-installed unpacked extensions do not update automatically; download and load each newer release manually.
+
 ## Local development
 
 Requirements: Node.js 24+, pnpm 11.7+.
