@@ -1,0 +1,13 @@
+node_modules/
+.output/
+.output-e2e/
+.wxt/
+coverage/
+playwright-report/
+test-results/
+*.zip
+*.pem
+.env
+.env.*
+!.env.example
+pnpm-debug.log*

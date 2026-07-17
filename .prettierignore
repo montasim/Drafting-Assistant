@@ -1,0 +1,8 @@
+node_modules
+.output
+.output-e2e
+.wxt
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
