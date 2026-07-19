@@ -3,7 +3,8 @@ import { defineConfig } from 'wxt';
 const e2eLinkedInPermission = process.env.E2E_REQUIRED_LINKEDIN === '1';
 
 export default defineConfig({
-  outDir: e2eLinkedInPermission ? '.output-e2e' : '.output',
+  outDir: e2eLinkedInPermission ? '.wxt/e2e-output' : '.output',
+  outDirTemplate: '.',
   modules: ['@wxt-dev/module-react'],
   manifest: {
     name: 'Professional Drafting Assistant',

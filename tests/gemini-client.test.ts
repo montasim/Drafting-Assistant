@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import { AppError } from '../src/application/errors';
 import { GeminiClient } from '../src/infrastructure/gemini-client';
 import { defaultSettings, type PostContext } from '../src/domain/schemas';
 
@@ -67,7 +68,9 @@ describe('GeminiClient', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(new GeminiClient().validateCredential('secret')).resolves.toBe(true);
-    expect(requestedUrl).toBe('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1');
+    expect(requestedUrl).toBe(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash',
+    );
     expect(new Headers(capturedInit?.headers).get('x-goog-api-key')).toBe('secret');
     expect(capturedInit?.method).toBeUndefined();
   });
@@ -84,6 +87,32 @@ describe('GeminiClient', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(new GeminiClient().validateCredential('bad')).resolves.toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports model access and API restriction failures during credential validation', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 403,
+            message: 'Requests to this API are blocked.',
+            status: 'PERMISSION_DENIED',
+          },
+        }),
+        { status: 403 },
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const error = await new GeminiClient()
+      .validateCredential('restricted')
+      .then(() => null)
+      .catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(AppError);
+    if (!(error instanceof AppError)) throw new Error('Expected an AppError.');
+    expect(error.code).toBe('provider-auth');
+    expect(error.message).toContain('API restrictions');
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 

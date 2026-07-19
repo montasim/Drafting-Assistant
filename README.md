@@ -66,7 +66,7 @@ For a production build:
 pnpm check
 ```
 
-Load `.output/chrome-mv3` from `chrome://extensions` with Developer mode enabled. Complete onboarding, then reload any LinkedIn tabs that were open before installation if necessary.
+Load `.output` from `chrome://extensions` with Developer mode enabled. Complete onboarding, then reload any LinkedIn tabs that were open before installation if necessary.
 
 Useful commands:
 

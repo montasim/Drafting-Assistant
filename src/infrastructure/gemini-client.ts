@@ -126,14 +126,14 @@ export class GeminiClient implements AiProvider {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30_000);
     try {
-      const response = await fetch(`${API_ROOT}/models?pageSize=1`, {
+      const response = await fetch(`${API_ROOT}/models/${MODEL_REGISTRY.drafting.primary}`, {
         headers: { 'x-goog-api-key': apiKey },
         signal: controller.signal,
       });
       if (response.ok) return true;
       const payload: unknown = await response.json().catch(() => null);
       const error = mapProviderError(response.status, payload);
-      if (error.code === 'provider-auth') return false;
+      if (response.status === 400 || response.status === 401) return false;
       throw error;
     } catch (error) {
       if (error instanceof AppError) throw error;
@@ -355,10 +355,16 @@ function mapProviderError(status: number, payload: unknown): AppError {
   const message = extractProviderMessage(payload);
   const providerStatus = extractProviderStatus(payload);
   if (status === 400 && /api key/i.test(message)) {
-    return new AppError('provider-auth', 'The Gemini API key was rejected.');
+    return invalidCredentialError();
   }
-  if (status === 401 || status === 403 || providerStatus === 'PERMISSION_DENIED') {
-    return new AppError('provider-auth', 'The Gemini API key was rejected or lacks access.');
+  if (status === 401) {
+    return invalidCredentialError();
+  }
+  if (status === 403 || providerStatus === 'PERMISSION_DENIED') {
+    return new AppError(
+      'provider-auth',
+      'The key is recognized, but its Google project or API restrictions do not allow Gemini 3.5 Flash. Create a Gemini API key in Google AI Studio or allow the Generative Language API for that key.',
+    );
   }
   if (status === 429 || providerStatus === 'RESOURCE_EXHAUSTED') {
     return new AppError(
@@ -372,6 +378,13 @@ function mapProviderError(status: number, payload: unknown): AppError {
   return new AppError(
     'provider-response-invalid',
     message || `Gemini rejected the request (${String(status)}).`,
+  );
+}
+
+function invalidCredentialError(): AppError {
+  return new AppError(
+    'provider-auth',
+    'The Gemini API key is invalid or revoked. Create a replacement in Google AI Studio.',
   );
 }
 

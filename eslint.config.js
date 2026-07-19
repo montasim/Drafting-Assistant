@@ -7,7 +7,6 @@ export default tseslint.config(
   {
     ignores: [
       '.output/**',
-      '.output-e2e/**',
       '.wxt/**',
       'coverage/**',
       'eslint.config.js',

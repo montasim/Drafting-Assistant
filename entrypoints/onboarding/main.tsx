@@ -8,6 +8,7 @@ import {
   type EngagementProfile,
 } from '../../src/domain/schemas';
 import { sendRuntimeMessage } from '../../src/shared/protocol';
+import { requestLinkedInPermission } from '../../src/infrastructure/linkedin-permission';
 import '../../src/ui/base.css';
 import styles from '../../src/ui/app.module.css';
 
@@ -46,9 +47,18 @@ function Onboarding() {
   }, []);
 
   async function grantPermission() {
-    const response = await sendRuntimeMessage({ type: 'permission:request-linkedin' });
-    setPermission(response.ok);
-    setStatus(response.ok ? 'LinkedIn access granted.' : response.message);
+    setBusy(true);
+    setStatus('');
+    try {
+      const granted = await requestLinkedInPermission();
+      setPermission(granted);
+      setStatus(granted ? 'LinkedIn access granted.' : 'LinkedIn access was not granted.');
+    } catch {
+      setPermission(false);
+      setStatus('Chrome could not request LinkedIn access. Click the button and try again.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function continueSetup() {
@@ -327,7 +337,9 @@ function Onboarding() {
             never routes you to a paid-only model.
           </p>
           {hasCredential && !apiKey && (
-            <div className={styles.success}>Gemini is connected and ready.</div>
+            <div className={styles.success}>
+              A Gemini key is saved. Paste a replacement below to validate and update it.
+            </div>
           )}
           <div className={styles.field}>
             <label htmlFor="api-key">Gemini API key</label>

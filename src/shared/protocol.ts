@@ -10,7 +10,6 @@ import {
 
 export const runtimeRequestSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('setup:get') }),
-  z.object({ type: z.literal('permission:request-linkedin') }),
   z.object({ type: z.literal('permission:remove-linkedin') }),
   z.object({ type: z.literal('credential:validate'), apiKey: z.string().min(1) }),
   z.object({

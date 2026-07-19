@@ -175,13 +175,6 @@ async function handleRequest(
         setup: { settings, profile, hasCredential: credential !== null, hasLinkedInPermission },
       };
     }
-    case 'permission:request-linkedin': {
-      const granted = await chrome.permissions.request({ origins: [LINKEDIN_ORIGIN] });
-      if (granted) await scheduleLinkedInIntegration();
-      return granted
-        ? { ok: true }
-        : { ok: false, code: 'permission-denied', message: 'LinkedIn access was not granted.' };
-    }
     case 'permission:remove-linkedin':
       await chrome.permissions.remove({ origins: [LINKEDIN_ORIGIN] });
       await scheduleLinkedInIntegration();

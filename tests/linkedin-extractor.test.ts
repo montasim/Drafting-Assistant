@@ -115,7 +115,7 @@ describe('extractLinkedInPost', () => {
 
     const context = extractLinkedInPost(target, 'https://www.linkedin.com/feed/');
 
-    expect(context.extractionVersion).toBe('2026.07.3');
+    expect(context.extractionVersion).toBe('2026.07.5');
     expect(context.visiblePostText).toBe('A semantic feed post.');
     expect(context.visibleDiscussion).toHaveLength(1);
     expect(context.responseTarget).toEqual({
@@ -125,4 +125,115 @@ describe('extractLinkedInPost', () => {
     });
     expect(JSON.stringify(context)).not.toMatch(/Semantic Commenter|semantic-commenter/);
   });
+
+  it('extracts the post and complete visible thread for an indented semantic reply target', () => {
+    document.body.innerHTML = `
+      <div data-testid="commentListPostKey" data-component-type="LazyColumn">
+        <div role="listitem" componentkey="expandedPostKeyFeedType_FEED_DETAIL">
+          <p><span data-testid="expandable-text-box">The original post.</span></p>
+          <div>
+            <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,unrelated)">
+              <a id="unrelated-author" href="https://www.linkedin.com/in/unrelated/">Unrelated Person</a>
+              <p><span data-testid="expandable-text-box">An unrelated comment.</span></p>
+              <button aria-label="Reply">Reply</button>
+            </div>
+            <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,parent)">
+              <a id="parent-author" href="https://www.linkedin.com/in/parent/">Parent Person</a>
+              <p><span data-testid="expandable-text-box">The parent comment.</span></p>
+              <button aria-label="Reply">Reply</button>
+            </div>
+            <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,selected-reply)">
+              <a id="selected-author" href="https://www.linkedin.com/in/replier/">Reply Person</a>
+              <p><span data-testid="expandable-text-box" id="selected-nested-reply">The selected nested reply.</span></p>
+              <button aria-label="Reply">Reply</button>
+            </div>
+            <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,later-reply)">
+              <a id="later-author" href="https://www.linkedin.com/in/parent/">Parent Person</a>
+              <p><span data-testid="expandable-text-box">A later reply in the same thread.</span></p>
+              <button aria-label="Reply">Reply</button>
+            </div>
+            <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,next-thread)">
+              <a id="next-author" href="https://www.linkedin.com/in/next/">Next Person</a>
+              <p><span data-testid="expandable-text-box">The next unrelated thread.</span></p>
+              <button aria-label="Reply">Reply</button>
+            </div>
+          </div>
+          <div contenteditable="true" role="textbox" aria-label="Text editor for creating reply">
+            Reply composer text must not be extracted.
+          </div>
+        </div>
+      </div>`;
+    setInlineStart('#unrelated-author', 16);
+    setInlineStart('#parent-author', 16);
+    setInlineStart('#selected-author', 52);
+    setInlineStart('#later-author', 52);
+    setInlineStart('#next-author', 16);
+    const target = document.querySelector('#selected-nested-reply');
+    if (!target) throw new Error('Nested reply fixture target is missing.');
+
+    const beforeExtraction = document.body.innerHTML;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const context = extractLinkedInPost(
+      target,
+      'https://www.linkedin.com/feed/update/urn:li:activity:7481/',
+    );
+
+    expect(context.visiblePostText).toBe('The original post.');
+    expect(
+      context.visibleDiscussion.map(({ text, depth, isTarget }) => ({
+        text,
+        depth,
+        isTarget,
+      })),
+    ).toEqual([
+      { text: 'The parent comment.', depth: 0, isTarget: false },
+      { text: 'The selected nested reply.', depth: 1, isTarget: true },
+      { text: 'A later reply in the same thread.', depth: 1, isTarget: false },
+    ]);
+    expect(context.responseTarget).toEqual({
+      type: 'reply',
+      participantLabel: 'Target Commenter',
+      text: 'The selected nested reply.',
+    });
+    expect(JSON.stringify(context)).not.toMatch(
+      /unrelated comment|next unrelated thread|Reply composer|Person|\/in\//,
+    );
+    expect(document.body.innerHTML).toBe(beforeExtraction);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it('fails closed when an explicitly nested reply has no visible parent comment', () => {
+    document.body.innerHTML = `
+      <div id="expandedPostKeyFeedType_FEED_DETAIL">
+        <p><span data-testid="expandable-text-box">The original post.</span></p>
+        <div
+          id="replaceableComment_urn:li:comment:(urn:li:activity:7481,orphan)"
+          data-depth="1"
+        >
+          <a href="https://www.linkedin.com/in/orphan/">Orphan Person</a>
+          <p><span data-testid="expandable-text-box" id="orphan-reply">An orphan reply.</span></p>
+        </div>
+      </div>`;
+    const target = document.querySelector('#orphan-reply');
+    if (!target) throw new Error('Orphan reply fixture target is missing.');
+
+    expect(() => extractLinkedInPost(target)).toThrow(/no visible parent comment/);
+  });
 });
+
+function setInlineStart(selector: string, left: number): void {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (!element) throw new Error(`Missing fixture element: ${selector}`);
+  element.getBoundingClientRect = () => ({
+    bottom: 56,
+    height: 40,
+    left,
+    right: left + 40,
+    top: 16,
+    width: 40,
+    x: left,
+    y: 16,
+    toJSON: () => ({}),
+  });
+}

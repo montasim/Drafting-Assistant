@@ -6,7 +6,7 @@ let extensionId: string;
 
 test.beforeAll(async () => {
   const extensionPath = path.resolve(
-    process.env.E2E_REQUIRED_LINKEDIN === '1' ? '.output-e2e/chrome-mv3' : '.output/chrome-mv3',
+    process.env.E2E_REQUIRED_LINKEDIN === '1' ? '.wxt/e2e-output' : '.output',
   );
   context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
@@ -75,19 +75,37 @@ test('packaged content script extracts the obfuscated semantic feed layout', asy
     route.fulfill({
       contentType: 'text/html',
       body: `<!doctype html><html><body>
-        <div id="expandedPostKeyFeedType_MAIN_FEED_RELEVANCE" componentkey="expandedPostKeyFeedType_MAIN_FEED_RELEVANCE">
-          <div role="listitem" componentkey="post-key">
+        <div data-testid="commentListPostKey" data-component-type="LazyColumn">
+          <div role="listitem" componentkey="expandedPostKeyFeedType_MAIN_FEED_RELEVANCE">
             <h2><span>Feed post</span></h2>
             <p><span data-testid="expandable-text-box" id="semantic-post-text">A semantic feed post.</span></p>
             <button aria-label="Comment">Comment</button>
-            <div data-testid="commentListPostKey" data-component-type="LazyColumn">
-              <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,7482)"
-                   componentkey="replaceableComment_urn:li:comment:(urn:li:activity:7481,7482)">
-                <a href="https://www.linkedin.com/in/private-identity/">Private Identity</a>
-                <p><span data-testid="expandable-text-box" id="semantic-comment-text">A semantic-layout comment.</span></p>
+            <div>
+              <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,unrelated)">
+                <a href="https://www.linkedin.com/in/unrelated-identity/">Unrelated Identity</a>
+                <p><span data-testid="expandable-text-box">An unrelated thread.</span></p>
+                <button aria-label="Reply">Reply</button>
+              </div>
+              <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,parent)"
+                   componentkey="replaceableComment_urn:li:comment:(urn:li:activity:7481,parent)">
+                <a href="https://www.linkedin.com/in/private-parent/">Private Parent</a>
+                <p><span data-testid="expandable-text-box">A semantic-layout parent comment.</span></p>
+                <button aria-label="Reply">Reply</button>
+              </div>
+              <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,reply)"
+                   componentkey="replaceableComment_urn:li:comment:(urn:li:activity:7481,reply)"
+                   style="margin-left: 36px">
+                <a href="https://www.linkedin.com/in/private-replier/">Private Replier</a>
+                <p><span data-testid="expandable-text-box" id="semantic-comment-text">A nested semantic-layout reply.</span></p>
+                <button aria-label="Reply">Reply</button>
+              </div>
+              <div id="replaceableComment_urn:li:comment:(urn:li:activity:7481,next)">
+                <a href="https://www.linkedin.com/in/next-identity/">Next Identity</a>
+                <p><span data-testid="expandable-text-box">The next unrelated thread.</span></p>
                 <button aria-label="Reply">Reply</button>
               </div>
             </div>
+            <div contenteditable="true" role="textbox" aria-label="Text editor for creating reply">Composer text</div>
           </div>
         </div>
       </body></html>`,
@@ -111,14 +129,20 @@ test('packaged content script extracts the obfuscated semantic feed layout', asy
   expect(response).toMatchObject({
     ok: true,
     context: {
-      extractionVersion: '2026.07.3',
+      extractionVersion: '2026.07.5',
       visiblePostText: 'A semantic feed post.',
+      visibleDiscussion: [
+        { text: 'A semantic-layout parent comment.', depth: 0, isTarget: false },
+        { text: 'A nested semantic-layout reply.', depth: 1, isTarget: true },
+      ],
       responseTarget: {
         type: 'reply',
         participantLabel: 'Target Commenter',
-        text: 'A semantic-layout comment.',
+        text: 'A nested semantic-layout reply.',
       },
     },
   });
-  expect(JSON.stringify(response)).not.toMatch(/Private Identity|private-identity/);
+  expect(JSON.stringify(response)).not.toMatch(
+    /Private Parent|Private Replier|private-parent|private-replier|unrelated thread|Composer text/,
+  );
 });
