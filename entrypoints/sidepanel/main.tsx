@@ -1,22 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import { Tabs } from 'radix-ui';
-import type { AnalysisResult, AnalysisState, HistoryEntry } from '../../src/domain/schemas';
+import type {
+  AnalysisResult,
+  AnalysisState,
+  EngagementProfile,
+  HistoryEntry,
+} from '../../src/domain/schemas';
 import { sendRuntimeMessage } from '../../src/shared/protocol';
-import '../../src/ui/base.css';
-import styles from '../../src/ui/app.module.css';
+import { DiscoveryPanel } from '../../src/ui/DiscoveryPanel';
+import { DiscoverySettingsPanel } from '../../src/ui/DiscoverySettingsPanel';
+import { controlClass } from '../../src/ui/control-styles';
+import '../../src/ui/tailwind.css';
+import styles from '../../src/ui/styles';
 
 const DEVELOPER = {
   name: 'Mohammad Montasim Al Mamun Shuvo',
   github: 'https://github.com/montasim',
   linkedIn: 'https://www.linkedin.com/in/montasim/',
+  support: 'https://www.supportkori.com/montasim',
 } as const;
 
 function SidePanel() {
   const [state, setState] = useState<AnalysisState>({ status: 'idle' });
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [configured, setConfigured] = useState<boolean | null>(null);
-  const [tab, setTab] = useState('current');
+  const [profile, setProfile] = useState<EngagementProfile | null>(null);
+  const [tab, setTab] = useState('draft');
+  const [draftView, setDraftView] = useState<'current' | 'saved'>('current');
 
   const refresh = useCallback(async () => {
     const [stateResponse, historyResponse, setupResponse] = await Promise.all([
@@ -26,12 +37,14 @@ function SidePanel() {
     ]);
     if (stateResponse.ok && 'state' in stateResponse) setState(stateResponse.state);
     if (historyResponse.ok && 'history' in historyResponse) setHistory(historyResponse.history);
-    if (setupResponse.ok && 'setup' in setupResponse)
+    if (setupResponse.ok && 'setup' in setupResponse) {
       setConfigured(
         setupResponse.setup.settings.onboardingComplete &&
           setupResponse.setup.hasCredential &&
           setupResponse.setup.hasLinkedInPermission,
       );
+      setProfile(setupResponse.setup.profile);
+    }
   }, []);
 
   useEffect(() => {
@@ -43,42 +56,60 @@ function SidePanel() {
 
   return (
     <main className={styles.shell}>
-      <header className={styles.header}>
+      <header className={`${styles.header} ${styles.sidePanelHeader}`}>
         <div className={styles.brandLockup}>
           <div className={styles.markFrame}>
             <img className={styles.mark} src="/icon/logo-512.png" alt="" />
           </div>
           <div>
-            <p className={styles.eyebrow}>Thoughtful by design</p>
             <h1 className={styles.title}>Drafting Assistant</h1>
-            <p className={styles.headerPromise}>Sound like yourself—only sharper.</p>
+            <p className={styles.headerPromise}>
+              Private writing workspace <span aria-hidden="true">·</span> Local
+            </p>
           </div>
         </div>
-        <span className={styles.privacyPill} title="Your drafts and settings stay on this device">
-          <span className={styles.statusDot} />
-          Local-first
-        </span>
+        <SupportKoriLink />
       </header>
       <Tabs.Root value={tab} onValueChange={setTab}>
         <Tabs.List className={styles.tabs}>
-          <Tabs.Trigger className={styles.tab} value="current">
-            Current
+          <Tabs.Trigger className={styles.tab} value="draft">
+            Draft
           </Tabs.Trigger>
-          <Tabs.Trigger className={styles.tab} value="history">
-            History
+          <Tabs.Trigger className={styles.tab} value="discover">
+            Discover
           </Tabs.Trigger>
           <Tabs.Trigger className={styles.tab} value="settings">
             Settings
           </Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Content className={styles.tabContent} value="current">
-          <Current state={state} configured={configured} onOpenSetup={() => openSetup()} />
+        <Tabs.Content className={styles.tabContent} value="draft">
+          <div className={styles.segmentedTabs} aria-label="Draft workspace">
+            <button
+              type="button"
+              data-active={draftView === 'current'}
+              onClick={() => setDraftView('current')}
+            >
+              Current
+            </button>
+            <button
+              type="button"
+              data-active={draftView === 'saved'}
+              onClick={() => setDraftView('saved')}
+            >
+              Saved <span>{history.length}</span>
+            </button>
+          </div>
+          {draftView === 'current' ? (
+            <Current state={state} configured={configured} onOpenSetup={() => openSetup()} />
+          ) : (
+            <History entries={history} onChange={setHistory} />
+          )}
         </Tabs.Content>
-        <Tabs.Content className={styles.tabContent} value="history">
-          <History entries={history} onChange={setHistory} />
+        <Tabs.Content className={styles.tabContent} value="discover">
+          <DiscoveryPanel onOpenSettings={() => setTab('settings')} />
         </Tabs.Content>
         <Tabs.Content className={styles.tabContent} value="settings">
-          <Settings onOpenSetup={() => openSetup()} />
+          <Settings profile={profile} onOpenSetup={() => openSetup()} />
         </Tabs.Content>
       </Tabs.Root>
     </main>
@@ -96,87 +127,80 @@ function Current({
 }) {
   if (configured === null)
     return (
-      <section className={`${styles.card} ${styles.loadingCard}`} aria-live="polite">
+      <section
+        className={`${styles.card} ${styles.loadingCard} ${styles.activeSurface}`}
+        aria-live="polite"
+      >
         <div className={styles.spinner} aria-hidden="true" />
         <div>
-          <p className={styles.eyebrow}>Preparing your workspace</p>
-          <h2>Getting everything ready</h2>
-          <p className={styles.subtle}>Checking your private setup and recent work…</p>
+          <h2>Loading your workspace</h2>
+          <p className={styles.subtle}>Checking setup and recent drafts…</p>
         </div>
       </section>
     );
   if (!configured)
     return (
-      <section className={`${styles.card} ${styles.heroCard}`}>
-        <p className={styles.eyebrow}>A few thoughtful choices</p>
-        <h2>Make every reply feel considered</h2>
+      <section className={`${styles.card} ${styles.activeSurface}`}>
+        <p className={styles.eyebrow}>Setup required</p>
+        <h2>Finish setup to create drafts</h2>
         <p className={styles.lead}>
-          Set your voice, connect Gemini, and choose exactly what the extension can access.
+          Connect Gemini, allow selected LinkedIn access, and set your writing context.
         </p>
-        <div className={styles.setupPreview} aria-label="Setup includes three private choices">
-          <span>
-            <b>1</b> Choose your privacy boundary
-          </span>
-          <span>
-            <b>2</b> Connect your free Gemini key
-          </span>
-          <span>
-            <b>3</b> Shape your writing voice
-          </span>
+        <div className={styles.cardActions}>
+          <button className={controlClass({ block: true })} onClick={onOpenSetup}>
+            Complete setup
+          </button>
         </div>
-        <button className={`${styles.button} ${styles.buttonWide}`} onClick={onOpenSetup}>
-          Complete private setup <span aria-hidden="true">→</span>
-        </button>
-        <p className={styles.reassurance}>About 2 minutes · Nothing is ever posted for you</p>
+        <p className={styles.reassurance}>About 2 minutes. The extension never posts for you.</p>
       </section>
     );
   if (state.status === 'running')
     return (
-      <section className={`${styles.card} ${styles.loadingCard}`} aria-live="polite">
+      <section
+        className={`${styles.card} ${styles.loadingCard} ${styles.activeSurface}`}
+        aria-live="polite"
+      >
         <div className={styles.spinner} aria-hidden="true" />
         <div>
-          <p className={styles.eyebrow}>One conversation, three angles</p>
-          <h2>Finding the strongest response</h2>
-          <p className={styles.subtle}>Reading only the visible context around:</p>
+          <p className={styles.eyebrow}>Analyzing selected context</p>
+          <h2>Creating four draft directions</h2>
           <p className={styles.runningExcerpt}>“{state.excerpt}”</p>
         </div>
       </section>
     );
   if (state.status === 'error')
     return (
-      <section className={styles.card}>
+      <section className={`${styles.card} ${styles.activeSurface}`}>
         <div className={styles.stateIconError} aria-hidden="true">
           !
         </div>
-        <p className={styles.eyebrow}>Your activity stayed untouched</p>
-        <h2>Your draft wasn’t created</h2>
+        <p className={styles.eyebrow}>Draft not created</p>
+        <h2>Check the connection and try again</h2>
         <div className={styles.error}>
           <strong>What happened</strong>
           <p>{state.message}</p>
         </div>
-        <p className={styles.reassuranceLeft}>
-          No post, click, or LinkedIn action happened. Review your connection and try again when
-          you’re ready.
-        </p>
-        <button className={`${styles.button} ${styles.secondary}`} onClick={onOpenSetup}>
-          Review connection
-        </button>
+        <p className={styles.reassuranceLeft}>No LinkedIn action was taken.</p>
+        <div className={styles.cardActions}>
+          <button className={controlClass({ variant: 'secondary' })} onClick={onOpenSetup}>
+            Review connection
+          </button>
+        </div>
       </section>
     );
   if (state.status === 'success') return <Result key={state.requestId} state={state} />;
   return (
-    <section className={`${styles.card} ${styles.empty}`}>
+    <section className={`${styles.card} ${styles.empty} ${styles.activeSurface}`}>
       <div className={styles.stateIcon} aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M5 4h14v12H8l-3 3V4Z" />
           <path d="M8 8h8M8 12h5" />
         </svg>
       </div>
-      <p className={styles.eyebrow}>Ready when you are</p>
-      <h2>Start with a conversation worth joining</h2>
+      <p className={styles.eyebrow}>Ready</p>
+      <h2>Select a LinkedIn conversation</h2>
       <p className={styles.leadCompact}>
-        On LinkedIn, right-click one visible post or comment and choose{' '}
-        <strong>Analyze this post</strong>.
+        Right-click a visible post or comment, then choose <strong>Analyze this post</strong>.
       </p>
       <div className={styles.trustRow}>
         <span>Visible text only</span>
@@ -188,18 +212,20 @@ function Current({
 
 function Result({ state }: { state: Extract<AnalysisState, { status: 'success' }> }) {
   const [drafts, setDrafts] = useState(() => state.result.drafts.map(({ text }) => text));
+  const [selectedDraft, setSelectedDraft] = useState(0);
+  const draft = state.result.drafts[selectedDraft];
+  const draftText = drafts[selectedDraft] ?? '';
   return (
     <>
-      <section className={`${styles.card} ${styles.analysisCard}`}>
+      <section className={`${styles.card} ${styles.analysisCard} ${styles.activeSurface}`}>
         <div className={styles.between}>
           <div>
             <p className={styles.eyebrow}>Conversation brief</p>
-            <h2>What matters here</h2>
+            <h2>{state.result.summary.overview}</h2>
           </div>
           <span className={styles.badge}>{state.context.responseTarget.type}</span>
         </div>
-        <p className={styles.analysisOverview}>{state.result.summary.overview}</p>
-        <strong className={styles.label}>Signals worth responding to</strong>
+        <strong className={styles.label}>Key themes</strong>
         <ul className={styles.list}>
           {state.result.summary.themes.map((theme) => (
             <li key={theme}>{theme}</li>
@@ -231,46 +257,50 @@ function Result({ state }: { state: Extract<AnalysisState, { status: 'success' }
       </section>
       <div className={styles.sectionIntro}>
         <div>
-          <p className={styles.eyebrow}>Three credible directions</p>
-          <h2>Choose the one that feels like you</h2>
+          <p className={styles.eyebrow}>Draft directions</p>
+          <h2>Choose one, then make it yours</h2>
         </div>
-        <span className={styles.meta}>Edits save locally</span>
+        <span className={styles.meta}>{wordCount(draftText)} words</span>
       </div>
-      {state.result.drafts.map((draft, index) => (
-        <section className={`${styles.card} ${styles.draftCard}`} key={draft.strategy}>
-          <div className={styles.between}>
-            <div>
-              <span className={styles.badge}>{labelStrategy(draft.strategy)}</span>
-              <p className={styles.strategyPromise}>{strategyPromise(draft.strategy)}</p>
-            </div>
-            <span className={styles.meta}>{wordCount(drafts[index] ?? '')} words</span>
-          </div>
+      <div className={styles.draftStrategyTabs} aria-label="Draft directions">
+        {state.result.drafts.map((item, index) => (
+          <button
+            type="button"
+            key={item.strategy}
+            data-active={index === selectedDraft}
+            onClick={() => setSelectedDraft(index)}
+          >
+            {strategyTabLabel(item.strategy)}
+          </button>
+        ))}
+      </div>
+      {draft && (
+        <section className={`${styles.card} ${styles.draftCard} ${styles.activeSurface}`}>
+          <p className={styles.strategyPromise}>{strategyPromise(draft.strategy)}</p>
           <textarea
             className={styles.textarea}
             aria-label={`${labelStrategy(draft.strategy)} draft`}
-            value={drafts[index] ?? ''}
+            value={draftText}
             onChange={(event) => {
               const next = [...drafts];
-              next[index] = event.target.value;
+              next[selectedDraft] = event.target.value;
               setDrafts(next);
             }}
             onBlur={(event) =>
               void sendRuntimeMessage({
                 type: 'history:update-draft',
                 entryId: state.requestId,
-                draftIndex: index,
+                draftIndex: selectedDraft,
                 text: event.target.value,
               })
             }
           />
           <div className={styles.draftActions}>
-            <span className={styles.reassuranceLeft}>
-              Review, refine, then copy when it’s yours.
-            </span>
-            <CopyButton text={drafts[index] ?? ''} label="Copy draft" />
+            <span className={styles.supportingNote}>Edits save on this device.</span>
+            <CopyButton text={draftText} label="Copy draft" />
           </div>
         </section>
-      ))}
+      )}
     </>
   );
 }
@@ -309,7 +339,7 @@ function History({
           </h2>
         </div>
         <button
-          className={`${styles.button} ${styles.danger} ${styles.compact}`}
+          className={controlClass({ variant: 'danger', size: 'compact' })}
           onClick={() => void clear()}
         >
           Clear all
@@ -327,7 +357,7 @@ function History({
             <HistoryDraft entry={entry} draft={draft} index={index} key={draft.strategy} />
           ))}
           <button
-            className={`${styles.button} ${styles.danger}`}
+            className={controlClass({ variant: 'danger' })}
             onClick={async () => {
               await sendRuntimeMessage({ type: 'history:delete', entryId: entry.id });
               onChange(entries.filter(({ id }) => id !== entry.id));
@@ -360,24 +390,35 @@ function HistoryDraft({
     });
   }
   return (
-    <div className={styles.draft}>
-      <div className={styles.between}>
-        <span className={styles.badge}>{labelStrategy(draft.strategy)}</span>
-        <span className={styles.meta}>{wordCount(text)} words</span>
+    <details className={styles.publicationHistoryItem}>
+      <summary>
+        <span>
+          <b>{labelStrategy(draft.strategy)}</b>
+          <small>{wordCount(text)} words</small>
+        </span>
+        <span className={styles.disclosureIcon} aria-hidden="true" />
+      </summary>
+      <div className={styles.historyItemBody}>
+        <textarea
+          className={styles.textarea}
+          aria-label={`${labelStrategy(draft.strategy)} saved draft`}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onBlur={() => void save()}
+        />
+        <CopyButton text={text} label="Copy draft" />
       </div>
-      <textarea
-        className={styles.textarea}
-        aria-label={`${labelStrategy(draft.strategy)} saved draft`}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        onBlur={() => void save()}
-      />
-      <CopyButton text={text} label="Copy" />
-    </div>
+    </details>
   );
 }
 
-function Settings({ onOpenSetup }: { onOpenSetup: () => void }) {
+function Settings({
+  profile,
+  onOpenSetup,
+}: {
+  profile: EngagementProfile | null;
+  onOpenSetup: () => void;
+}) {
   const [message, setMessage] = useState('');
   async function exportDiagnostics() {
     const response = await sendRuntimeMessage({ type: 'diagnostics:export' });
@@ -388,81 +429,101 @@ function Settings({ onOpenSetup }: { onOpenSetup: () => void }) {
   }
   return (
     <>
-      <section className={`${styles.card} ${styles.heroCardSoft}`}>
-        <p className={styles.eyebrow}>Tune the experience</p>
-        <h2>Settings & privacy</h2>
+      <section className={`${styles.card} ${styles.activeSurface}`}>
+        <p className={styles.eyebrow}>Core settings</p>
+        <h2>Draft settings</h2>
         <p className={styles.leadCompact}>
-          Refine your voice, language, Gemini connection, and access choices whenever your needs
-          change.
+          Manage LinkedIn access, your Gemini connection, writing profile, and draft defaults.
         </p>
-        <button className={styles.button} onClick={onOpenSetup}>
-          Open settings <span aria-hidden="true">→</span>
-        </button>
-      </section>
-      <section className={styles.card}>
-        <p className={styles.eyebrow}>Built around restraint</p>
-        <h2>Your control is the feature</h2>
-        <div className={styles.privacyList}>
-          <span>
-            <b>Selected context only</b>
-            <small>Only visible text around your right-click</small>
-          </span>
-          <span>
-            <b>Local by default</b>
-            <small>Preferences and recent drafts stay on your device</small>
-          </span>
-          <span>
-            <b>Manual by design</b>
-            <small>You review, copy, and publish every response</small>
-          </span>
+        <div className={styles.cardActions}>
+          <button className={controlClass()} onClick={onOpenSetup}>
+            Edit draft settings
+          </button>
         </div>
       </section>
-      <section className={styles.card}>
-        <p className={styles.eyebrow}>Useful when something feels off</p>
-        <h3>Local diagnostics</h3>
-        <p className={styles.subtle}>
-          Copy a privacy-safe technical snapshot for troubleshooting. It never includes keys, post
-          content, drafts, your profile, or browsing history.
-        </p>
-        <button
-          className={`${styles.button} ${styles.secondary}`}
-          onClick={() => void exportDiagnostics()}
-        >
-          Copy safe diagnostics
-        </button>
-        {message && (
-          <p className={styles.success} role="status">
-            {message}
+      <DiscoverySettingsPanel profile={profile} />
+      <details className={`${styles.card} ${styles.settingsDisclosure}`}>
+        <summary>
+          <div>
+            <h3>Privacy boundaries</h3>
+            <small>Selected context, local drafts, manual publishing</small>
+          </div>
+          <span className={styles.disclosureIcon} aria-hidden="true" />
+        </summary>
+        <div className={styles.settingsDisclosureBody}>
+          <div className={styles.privacyList}>
+            <span>
+              <b>Selected context only</b>
+              <small>Only visible text around your right-click</small>
+            </span>
+            <span>
+              <b>Local by default</b>
+              <small>Preferences and recent drafts stay on your device</small>
+            </span>
+            <span>
+              <b>Manual by design</b>
+              <small>You review, copy, and publish every response</small>
+            </span>
+          </div>
+        </div>
+      </details>
+      <details className={`${styles.card} ${styles.settingsDisclosure}`}>
+        <summary>
+          <div>
+            <h3>Local diagnostics</h3>
+            <small>Copy a privacy-safe troubleshooting snapshot</small>
+          </div>
+          <span className={styles.disclosureIcon} aria-hidden="true" />
+        </summary>
+        <div className={styles.settingsDisclosureBody}>
+          <p className={styles.subtle}>
+            Excludes keys, post content, drafts, your profile, and browsing history.
           </p>
-        )}
-      </section>
-      <section className={styles.card}>
-        <p className={styles.eyebrow}>Independent and transparent</p>
-        <h2>Developer</h2>
-        <p className={styles.developerName}>{DEVELOPER.name}</p>
-        <p className={styles.subtle}>
-          Built for thoughtful professionals who value their own voice.
-        </p>
-        <div className={styles.externalLinks}>
-          <a
-            className={`${styles.button} ${styles.secondary} ${styles.linkButton}`}
-            href={DEVELOPER.github}
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub
-          </a>
-          <a
-            className={`${styles.button} ${styles.secondary} ${styles.linkButton}`}
-            href={DEVELOPER.linkedIn}
-            target="_blank"
-            rel="noreferrer"
-          >
-            LinkedIn
-          </a>
+          <div className={styles.cardActions}>
+            <button
+              className={controlClass({ variant: 'secondary' })}
+              onClick={() => void exportDiagnostics()}
+            >
+              Copy diagnostics
+            </button>
+          </div>
+          {message && (
+            <p className={styles.success} role="status">
+              {message}
+            </p>
+          )}
         </div>
-      </section>
-      <SupportKoriWidget />
+      </details>
+      <details className={`${styles.card} ${styles.settingsDisclosure}`}>
+        <summary>
+          <div>
+            <h2>Developer</h2>
+            <small>Project links</small>
+          </div>
+          <span className={styles.disclosureIcon} aria-hidden="true" />
+        </summary>
+        <div className={styles.settingsDisclosureBody}>
+          <p className={styles.developerName}>{DEVELOPER.name}</p>
+          <div className={styles.externalLinks}>
+            <a
+              className={controlClass({ variant: 'secondary', link: true })}
+              href={DEVELOPER.github}
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+            <a
+              className={controlClass({ variant: 'secondary', link: true })}
+              href={DEVELOPER.linkedIn}
+              target="_blank"
+              rel="noreferrer"
+            >
+              LinkedIn
+            </a>
+          </div>
+        </div>
+      </details>
     </>
   );
 }
@@ -483,7 +544,10 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
   return (
     <button
-      className={`${styles.button} ${styles.secondary} ${copyState === 'copied' ? styles.copied : ''}`}
+      className={controlClass({
+        variant: 'secondary',
+        copied: copyState === 'copied',
+      })}
       onClick={() => void handleCopy()}
       type="button"
     >
@@ -494,59 +558,32 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-function SupportKoriWidget() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  useEffect(() => {
-    function closeWidget(event: MessageEvent) {
-      if (event.origin === 'https://www.supportkori.com' && event.data === 'close-sk-widget') {
-        setIsOpen(false);
-      }
-    }
-
-    window.addEventListener('message', closeWidget);
-    return () => window.removeEventListener('message', closeWidget);
-  }, []);
-
+function SupportKoriLink() {
   return (
-    <div>
-      <div
-        id="supportkori-panel"
-        className={`${styles.supportPanel} ${isOpen ? styles.supportPanelOpen : ''}`}
-        aria-hidden={!isOpen}
+    <a
+      className={styles.headerSupportLink}
+      href={DEVELOPER.support}
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Support montasim"
+    >
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       >
-        <iframe
-          className={styles.supportFrame}
-          src="https://www.supportkori.com/widget/montasim"
-          title="Support montasim"
-          allow="payment"
-        />
-      </div>
-      <button
-        type="button"
-        className={styles.supportButton}
-        aria-controls="supportkori-panel"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-      >
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
-          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
-          <line x1="6" y1="1" x2="6" y2="4" />
-          <line x1="10" y1="1" x2="10" y2="4" />
-          <line x1="14" y1="1" x2="14" y2="4" />
-        </svg>
-        <span>Support montasim</span>
-      </button>
-    </div>
+        <path d="M18 8h1a4 4 0 0 1 0 8h-1" />
+        <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" />
+        <line x1="6" y1="1" x2="6" y2="4" />
+        <line x1="10" y1="1" x2="10" y2="4" />
+        <line x1="14" y1="1" x2="14" y2="4" />
+      </svg>
+      <span>Support</span>
+    </a>
   );
 }
 
@@ -568,7 +605,14 @@ function labelStrategy(value: string) {
 function strategyPromise(value: string) {
   if (value === 'professional-insight') return 'Add a credible perspective';
   if (value === 'specific-question') return 'Invite a meaningful reply';
+  if (value === 'constructive-challenge') return 'Test the central assumption professionally';
   return 'Build on the idea with care';
+}
+function strategyTabLabel(value: string) {
+  if (value === 'professional-insight') return 'Add insight';
+  if (value === 'specific-question') return 'Ask a question';
+  if (value === 'constructive-challenge') return 'Challenge it';
+  return 'Build on it';
 }
 
 const root = document.getElementById('root');

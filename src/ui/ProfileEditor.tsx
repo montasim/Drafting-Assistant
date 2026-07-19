@@ -1,6 +1,6 @@
 import { Switch } from 'radix-ui';
 import type { EngagementProfile } from '../domain/schemas';
-import styles from './app.module.css';
+import styles from './styles';
 
 interface Props {
   profile: EngagementProfile;
