@@ -17,8 +17,23 @@ describe('buildDraftPrompt', () => {
     const prompt = buildDraftPrompt(context, null, defaultSettings);
     expect(prompt.system).toMatch(/untrusted data/i);
     expect(prompt.system).toMatch(/Do not claim personal experience/i);
+    expect(prompt.system).toMatch(/constructive-challenge draft/i);
+    expect(prompt.system).toMatch(/Never invent disagreement/i);
     const payload = JSON.parse(prompt.user) as Record<string, unknown>;
     expect(payload.POST_CONTEXT).toEqual(context);
+  });
+
+  it('requests the four confirmed draft strategies in risk order', () => {
+    const prompt = buildDraftPrompt(context, null, defaultSettings);
+    const payload = JSON.parse(prompt.user) as {
+      task: { output: { drafts: { strategy: string }[] } };
+    };
+    expect(payload.task.output.drafts.map(({ strategy }) => strategy)).toEqual([
+      'professional-insight',
+      'specific-question',
+      'support-and-extend',
+      'constructive-challenge',
+    ]);
   });
 
   it.each([

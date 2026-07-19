@@ -5,6 +5,7 @@ import { MODEL_REGISTRY, type ModelRoute } from '../application/models';
 import { buildDraftPrompt, buildProfilePrompt } from '../application/prompt';
 import {
   analysisResultSchema,
+  currentDraftSetSchema,
   engagementProfileSchema,
   type AnalysisResult,
   type AppSettings,
@@ -13,7 +14,9 @@ import {
 } from '../domain/schemas';
 
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
-const outputSchema = analysisResultSchema.omit({ model: true, generatedAt: true });
+const outputSchema = analysisResultSchema
+  .omit({ model: true, generatedAt: true })
+  .extend({ drafts: currentDraftSetSchema });
 const profileOutputSchema = engagementProfileSchema.omit({
   schemaVersion: true,
   source: true,
@@ -54,14 +57,19 @@ const draftResponseSchema = {
     },
     drafts: {
       type: 'array',
-      minItems: 3,
-      maxItems: 3,
+      minItems: 4,
+      maxItems: 4,
       items: {
         type: 'object',
         properties: {
           strategy: {
             type: 'string',
-            enum: ['professional-insight', 'specific-question', 'support-and-extend'],
+            enum: [
+              'professional-insight',
+              'specific-question',
+              'support-and-extend',
+              'constructive-challenge',
+            ],
           },
           text: { type: 'string' },
         },

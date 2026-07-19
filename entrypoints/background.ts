@@ -10,6 +10,19 @@ import {
 } from '../src/domain/schemas';
 import { ExtensionStorage } from '../src/infrastructure/storage';
 import { GeminiClient } from '../src/infrastructure/gemini-client';
+import { GeminiDiscoveryClient } from '../src/infrastructure/gemini-discovery-client';
+import { GroqClient } from '../src/infrastructure/groq-client';
+import {
+  analyzeAndSaveVoice,
+  discoveryFailure,
+  generateOpportunityDraft,
+  persistCompletedDiscovery,
+  runDiscovery,
+} from '../src/application/discovery-service';
+import {
+  getDiscoveryPermissions,
+  removeAllDiscoveryPermissions,
+} from '../src/infrastructure/discovery-permission';
 import {
   runtimeRequestSchema,
   type RuntimeRequest,
@@ -24,7 +37,10 @@ let integrationSync: Promise<void> = Promise.resolve();
 export default defineBackground(() => {
   const storage = new ExtensionStorage();
   const provider: AiProvider = new GeminiClient();
+  const discoveryProvider = new GroqClient();
+  const geminiDiscoveryProvider = new GeminiDiscoveryClient();
   let activeRequestId: string | null = null;
+  let activeDiscovery: AbortController | null = null;
 
   const ready = initialize(storage);
 
@@ -33,8 +49,12 @@ export default defineBackground(() => {
       void chrome.tabs.create({ url: chrome.runtime.getURL('/onboarding.html') });
   });
 
-  chrome.permissions.onAdded.addListener(() => void scheduleLinkedInIntegration());
-  chrome.permissions.onRemoved.addListener(() => void scheduleLinkedInIntegration());
+  chrome.permissions.onAdded.addListener((permissions) => {
+    if (permissions.origins?.includes(LINKEDIN_ORIGIN)) void scheduleLinkedInIntegration();
+  });
+  chrome.permissions.onRemoved.addListener((permissions) => {
+    if (permissions.origins?.includes(LINKEDIN_ORIGIN)) void scheduleLinkedInIntegration();
+  });
 
   chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId !== CONTEXT_MENU_ID || !tab?.id) return;
@@ -69,8 +89,12 @@ export default defineBackground(() => {
             sender,
             storage,
             provider,
+            discoveryProvider,
+            geminiDiscoveryProvider,
             () => activeRequestId,
             (value) => (activeRequestId = value),
+            () => activeDiscovery,
+            (value) => (activeDiscovery = value),
           ),
         )
         .then(sendResponse)
@@ -86,6 +110,7 @@ export default defineBackground(() => {
 async function initialize(storage: ExtensionStorage): Promise<void> {
   await storage.restrictAccess();
   await storage.migrateToGemini();
+  await storage.migratePlaintextCredentials();
   const previousState = await storage.getAnalysisState();
   if (previousState.status === 'running') {
     await storage.saveAnalysisState({
@@ -93,6 +118,15 @@ async function initialize(storage: ExtensionStorage): Promise<void> {
       requestId: previousState.requestId,
       code: 'provider-unavailable',
       message: 'The previous analysis was interrupted when the extension stopped.',
+    });
+  }
+  const previousDiscoveryState = await storage.getDiscoveryState();
+  if (previousDiscoveryState.status === 'running') {
+    await storage.saveDiscoveryState({
+      status: 'error',
+      runId: previousDiscoveryState.runId,
+      code: 'provider-unavailable',
+      message: 'The previous discovery operation was interrupted when the extension stopped.',
     });
   }
   await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
@@ -159,20 +193,30 @@ async function handleRequest(
   sender: chrome.runtime.MessageSender,
   storage: ExtensionStorage,
   provider: AiProvider,
+  discoveryProvider: GroqClient,
+  geminiDiscoveryProvider: GeminiDiscoveryClient,
   getActiveRequestId: () => string | null,
   setActiveRequestId: (value: string | null) => void,
+  getActiveDiscovery: () => AbortController | null,
+  setActiveDiscovery: (value: AbortController | null) => void,
 ): Promise<RuntimeResponse> {
   switch (request.type) {
     case 'setup:get': {
-      const [settings, profile, credential, hasLinkedInPermission] = await Promise.all([
+      const [settings, profile, credentialState, hasLinkedInPermission] = await Promise.all([
         storage.getSettings(),
         storage.getProfile(),
-        storage.getCredential(),
+        storage.getCredentialState(),
         chrome.permissions.contains({ origins: [LINKEDIN_ORIGIN] }),
       ]);
       return {
         ok: true,
-        setup: { settings, profile, hasCredential: credential !== null, hasLinkedInPermission },
+        setup: {
+          settings,
+          profile,
+          hasCredential: credentialState === 'session' || credentialState === 'unlocked',
+          credentialState,
+          hasLinkedInPermission,
+        },
       };
     }
     case 'permission:remove-linkedin':
@@ -188,6 +232,7 @@ async function handleRequest(
       await storage.clearCredential();
       return { ok: true };
     case 'settings:save':
+      if (!request.settings.rememberCredential) await storage.forgetCredentialOnDevice();
       await storage.saveSettings(request.settings);
       return { ok: true };
     case 'profile:save':
@@ -233,6 +278,181 @@ async function handleRequest(
       return { ok: true };
     case 'diagnostics:export':
       return { ok: true, diagnosticJson: await storage.exportDiagnostics() };
+    case 'discovery:get': {
+      const [settings, voice, state, current, history, credentialState, permissions] =
+        await Promise.all([
+          storage.getDiscoverySettings(),
+          storage.getVoiceSettings(),
+          storage.getDiscoveryState(),
+          storage.getDiscoveryResult(),
+          storage.listPublicationHistory(),
+          storage.getDiscoveryCredentialState(),
+          getDiscoveryPermissions(),
+        ]);
+      return {
+        ok: true,
+        discovery: {
+          settings,
+          voice,
+          state,
+          current,
+          history,
+          hasCredential: credentialState === 'session' || credentialState === 'unlocked',
+          credentialState,
+          permissions,
+        },
+      };
+    }
+    case 'discovery:credential-validate':
+      return {
+        ok: true,
+        valid: await discoveryProvider.validateCredential(request.apiKey),
+      };
+    case 'discovery:credential-save':
+      await storage.saveDiscoveryCredential(request.apiKey, request.rememberOnDevice);
+      return { ok: true };
+    case 'discovery:credential-clear':
+      await storage.clearDiscoveryCredential();
+      return { ok: true };
+    case 'discovery:settings-save':
+      if (!request.settings.rememberCredential) await storage.forgetDiscoveryCredentialOnDevice();
+      await storage.saveDiscoverySettings(request.settings);
+      return { ok: true };
+    case 'discovery:disable': {
+      getActiveDiscovery()?.abort();
+      const settings = await storage.getDiscoverySettings();
+      await Promise.all([
+        storage.saveDiscoverySettings({ ...settings, enabled: false, consent: false }),
+        storage.clearDiscoveryCurrent(),
+        storage.clearDiscoveryCredential(),
+        removeAllDiscoveryPermissions(),
+      ]);
+      return { ok: true };
+    }
+    case 'discovery:run': {
+      if (getActiveDiscovery())
+        return { ok: false, code: 'busy', message: 'A discovery operation is already running.' };
+      const runId = crypto.randomUUID();
+      const controller = new AbortController();
+      const startedAt = new Date().toISOString();
+      setActiveDiscovery(controller);
+      await storage.saveDiscoveryState({
+        status: 'running',
+        runId,
+        stage: 'collecting',
+        startedAt,
+      });
+      try {
+        const overrideApiKey =
+          request.provider === 'gemini' ? await storage.getCredential() : undefined;
+        if (request.provider === 'gemini' && !overrideApiKey)
+          throw new AppError(
+            'credential-missing',
+            'Save a Gemini API key before using the manual discovery override.',
+          );
+        const result = await runDiscovery(
+          runId,
+          storage,
+          request.provider === 'gemini' ? geminiDiscoveryProvider : discoveryProvider,
+          controller.signal,
+          async (stage) =>
+            storage.saveDiscoveryState({
+              status: 'running',
+              runId,
+              stage,
+              startedAt,
+            }),
+          overrideApiKey ?? undefined,
+          request.provider === 'gemini',
+        );
+        await persistCompletedDiscovery(storage, result);
+        await storage.saveDiscoveryState({
+          status: 'success',
+          runId,
+          completedAt: result.completedAt,
+        });
+        await storage.recordDiagnostic('discovery-completed');
+        return { ok: true };
+      } catch (error) {
+        if (controller.signal.aborted) {
+          await storage.saveDiscoveryState({ status: 'idle' });
+          await storage.recordDiagnostic('discovery-cancelled');
+          return { ok: true };
+        }
+        const failure = discoveryFailure(error);
+        await storage.saveDiscoveryState({ status: 'error', runId, ...failure });
+        await storage.recordDiagnostic('discovery-failed', failure.code);
+        return { ok: false, ...failure };
+      } finally {
+        setActiveDiscovery(null);
+      }
+    }
+    case 'discovery:cancel':
+      getActiveDiscovery()?.abort();
+      return { ok: true };
+    case 'discovery:generate': {
+      if (getActiveDiscovery())
+        return { ok: false, code: 'busy', message: 'A discovery operation is already running.' };
+      const controller = new AbortController();
+      setActiveDiscovery(controller);
+      try {
+        const overrideApiKey =
+          request.provider === 'gemini' ? await storage.getCredential() : undefined;
+        if (request.provider === 'gemini' && !overrideApiKey)
+          throw new AppError(
+            'credential-missing',
+            'Save a Gemini API key before using the manual draft override.',
+          );
+        await generateOpportunityDraft(
+          request.opportunityId,
+          request.alternative,
+          storage,
+          request.provider === 'gemini' ? geminiDiscoveryProvider : discoveryProvider,
+          controller.signal,
+          overrideApiKey ?? undefined,
+        );
+        return { ok: true };
+      } finally {
+        setActiveDiscovery(null);
+      }
+    }
+    case 'discovery:update-draft':
+      await storage.updatePublicationDraft(request.opportunityId, request.text);
+      return { ok: true };
+    case 'discovery:clear-seen':
+      await storage.clearSeenItems();
+      return { ok: true };
+    case 'voice:save':
+      await storage.saveVoiceSettings(request.voice);
+      return { ok: true };
+    case 'voice:analyze': {
+      if (getActiveDiscovery())
+        return { ok: false, code: 'busy', message: 'A discovery operation is already running.' };
+      const controller = new AbortController();
+      setActiveDiscovery(controller);
+      try {
+        return {
+          ok: true,
+          guide: await analyzeAndSaveVoice(
+            request.samples,
+            storage,
+            discoveryProvider,
+            controller.signal,
+          ),
+        };
+      } finally {
+        setActiveDiscovery(null);
+      }
+    }
+    case 'publication-history:delete':
+      await storage.deletePublicationHistory(request.entryId);
+      return { ok: true };
+    case 'publication-history:update-draft':
+      await storage.updatePublicationHistoryDraft(request.entryId, request.text);
+      return { ok: true };
+    case 'publication-history:clear':
+      await storage.clearPublicationHistory();
+      return { ok: true };
     case 'content:extract-selected-post':
       return {
         ok: false,

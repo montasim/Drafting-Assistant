@@ -1,4 +1,5 @@
 import { defineConfig } from 'wxt';
+import tailwindcss from '@tailwindcss/vite';
 
 const e2eLinkedInPermission = process.env.E2E_REQUIRED_LINKEDIN === '1';
 
@@ -6,17 +7,23 @@ export default defineConfig({
   outDir: e2eLinkedInPermission ? '.wxt/e2e-output' : '.output',
   outDirTemplate: '.',
   modules: ['@wxt-dev/module-react'],
+  vite: () => ({ plugins: [tailwindcss()] }),
   manifest: {
     name: 'Professional Drafting Assistant',
     short_name: 'Drafting AI',
-    description: 'Create professional, evidence-bound response drafts from user-selected posts.',
+    description:
+      'Create evidence-bound LinkedIn responses and manually discovered standalone post drafts.',
     minimum_chrome_version: '120',
-    content_security_policy: {
-      extension_pages:
-        "script-src 'self'; object-src 'self'; frame-src https://supportkori.com https://www.supportkori.com",
-    },
     permissions: ['contextMenus', 'scripting', 'sidePanel', 'storage'],
-    optional_host_permissions: e2eLinkedInPermission ? [] : ['https://www.linkedin.com/*'],
+    optional_host_permissions: [
+      ...(e2eLinkedInPermission ? [] : ['https://www.linkedin.com/*']),
+      'https://api.groq.com/*',
+      'https://hacker-news.firebaseio.com/*',
+      'https://dev.to/*',
+      'https://medium.com/*',
+      'https://lobste.rs/*',
+      'https://api.stackexchange.com/*',
+    ],
     host_permissions: [
       'https://generativelanguage.googleapis.com/*',
       ...(e2eLinkedInPermission ? ['https://www.linkedin.com/*'] : []),

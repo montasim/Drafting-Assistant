@@ -35,6 +35,10 @@ const validOutput = {
       strategy: 'support-and-extend',
       text: 'A lightweight review cadence can extend this by catching stale assumptions early.',
     },
+    {
+      strategy: 'constructive-challenge',
+      text: 'Which assumption would fail first if the records became too costly to maintain?',
+    },
   ],
   language: 'English',
 };
@@ -128,7 +132,8 @@ describe('GeminiClient', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await new GeminiClient().analyze('secret', context, null, defaultSettings);
-    expect(result.drafts).toHaveLength(3);
+    expect(result.drafts).toHaveLength(4);
+    expect(result.drafts[3].strategy).toBe('constructive-challenge');
     expect(result.model).toBe('gemini-3.5-flash');
     expect(requestedUrl).toContain('/models/gemini-3.5-flash:generateContent');
     if (typeof capturedInit?.body !== 'string') throw new Error('Request body was not captured.');
@@ -147,7 +152,34 @@ describe('GeminiClient', () => {
     expect(JSON.stringify(request.generationConfig)).not.toContain('"enum":[1]');
     expect(request.generationConfig).not.toHaveProperty('temperature');
     expect(JSON.stringify(request.generationConfig)).not.toContain('thinkingBudget');
+    const generationConfig = request.generationConfig as {
+      responseSchema: {
+        properties: {
+          drafts: {
+            minItems: number;
+            maxItems: number;
+            items: { properties: { strategy: { enum: string[] } } };
+          };
+        };
+      };
+    };
+    const draftsSchema = generationConfig.responseSchema.properties.drafts;
+    expect(draftsSchema).toMatchObject({ minItems: 4, maxItems: 4 });
+    expect(draftsSchema.items.properties.strategy.enum).toContain('constructive-challenge');
     expect(new Headers(capturedInit.headers).get('x-goog-api-key')).toBe('secret');
+  });
+
+  it('rejects a response that omits the constructive challenge draft', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        generationResponse({ ...validOutput, drafts: validOutput.drafts.slice(0, 3) }),
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      new GeminiClient().analyze('secret', context, null, defaultSettings),
+    ).rejects.toMatchObject({ code: 'provider-response-invalid' });
   });
 
   it('falls back to Gemini 3.1 Flash-Lite only after an explicit quota response', async () => {

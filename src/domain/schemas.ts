@@ -52,8 +52,27 @@ export const draftStrategySchema = z.enum([
   'professional-insight',
   'specific-question',
   'support-and-extend',
+  'constructive-challenge',
 ]);
 export type DraftStrategy = z.infer<typeof draftStrategySchema>;
+
+const responseDraftTextSchema = z.string().min(1).max(1200);
+const responseDraftSchema = z.object({
+  strategy: draftStrategySchema,
+  text: responseDraftTextSchema,
+});
+
+export const currentDraftSetSchema = z.tuple([
+  z.object({ strategy: z.literal('professional-insight'), text: responseDraftTextSchema }),
+  z.object({ strategy: z.literal('specific-question'), text: responseDraftTextSchema }),
+  z.object({ strategy: z.literal('support-and-extend'), text: responseDraftTextSchema }),
+  z.object({ strategy: z.literal('constructive-challenge'), text: responseDraftTextSchema }),
+]);
+
+const compatibleDraftSetSchema = z.union([
+  currentDraftSetSchema,
+  responseDraftSchema.array().length(3),
+]);
 
 export const engagementRiskSchema = z.object({
   category: z.enum(['professional', 'privacy', 'safety', 'credibility', 'regulated-claim']),
@@ -71,14 +90,7 @@ export const analysisResultSchema = z.object({
     uncertainties: z.array(z.string().min(1).max(300)).max(8),
     risks: z.array(engagementRiskSchema).max(8),
   }),
-  drafts: z
-    .array(
-      z.object({
-        strategy: draftStrategySchema,
-        text: z.string().min(1).max(1200),
-      }),
-    )
-    .length(3),
+  drafts: compatibleDraftSetSchema,
   language: z.string().min(1).max(80),
   model: z.string().min(1),
   generatedAt: z.iso.datetime(),
