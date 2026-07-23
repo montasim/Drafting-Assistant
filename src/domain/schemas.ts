@@ -1,172 +1,518 @@
 import { z } from 'zod';
+import { detectReplyLanguage, stripReplyDirectionPrefix } from '../shared/reply-text';
+import { calibrationRequestStateSchema } from './calibration';
 
-export const responseTargetTypeSchema = z.enum(['post', 'reply']);
-export type ResponseTargetType = z.infer<typeof responseTargetTypeSchema>;
+const boundedText = (max: number) => z.string().trim().min(1).max(max);
+const optionalBoundedText = (max: number) => z.string().trim().max(max).optional();
+const httpsUrlSchema = z.url().refine((value) => new URL(value).protocol === 'https:', {
+  message: 'Only HTTPS links are allowed.',
+});
+const linkedInUrlSchema = httpsUrlSchema.refine(
+  (value) => new URL(value).hostname === 'www.linkedin.com',
+  { message: 'Only LinkedIn post links are allowed.' },
+);
 
-export const supportedSurfaceSchema = z.enum(['feed', 'post-detail']);
-export type SupportedSurface = z.infer<typeof supportedSurfaceSchema>;
+export const isoDateSchema = z.iso.datetime();
+export const uuidSchema = z.uuid();
+
+export const providerNameSchema = z.enum(['gemini', 'groq']);
+export type ProviderName = z.infer<typeof providerNameSchema>;
+
+export const providerValidationSchema = z.object({
+  state: z.enum(['missing', 'unvalidated', 'valid', 'invalid']),
+  checkedAt: isoDateSchema.optional(),
+  credentialVersion: z.number().int().nonnegative(),
+});
+export type ProviderValidation = z.infer<typeof providerValidationSchema>;
+
+export const writingLanguageSchema = z.enum(['match-source', 'english', 'bangla']);
+export const lengthModeSchema = z.enum(['concise', 'standard', 'detailed']);
+export const toneSchema = z.enum([
+  'conversational',
+  'concise',
+  'analytical',
+  'supportive',
+  'challenging',
+  'custom',
+]);
+export const retentionPolicySchema = z.enum(['latest-20', 'latest-50', '30-days', 'forever']);
+export type RetentionPolicy = z.infer<typeof retentionPolicySchema>;
+export const sourceNameSchema = z.enum([
+  'hacker-news',
+  'dev',
+  'medium',
+  'lobsters',
+  'stack-overflow',
+]);
+export type SourceName = z.infer<typeof sourceNameSchema>;
+
+export const writingProfileSchema = z.object({
+  role: z.string().trim().max(160),
+  topics: z.array(boundedText(100)).max(20),
+  audience: z.string().trim().max(400),
+  tone: toneSchema,
+  customTone: z.string().trim().max(600),
+  writingLanguage: writingLanguageSchema,
+  length: lengthModeSchema,
+  allowEmoji: z.boolean(),
+  allowHashtags: z.boolean(),
+  styleGuide: z.string().trim().max(4_000),
+  writingSamples: z.array(boundedText(5_000)).max(8),
+});
+export type WritingProfile = z.infer<typeof writingProfileSchema>;
+
+export const learnedPreferencesSchema = z.object({
+  acceptedSummary: z.string().trim().max(2_000),
+  feedbackCount: z.number().int().nonnegative(),
+  analyzedFeedbackIds: z.array(uuidSchema).max(100),
+  directionScores: z.record(z.string(), z.number().int().min(-20).max(20)),
+  featureScores: z.record(z.string(), z.number().int().min(-20).max(20)).default({}),
+  scoredFeedbackIds: z.array(uuidSchema).max(100).default([]),
+});
+export type LearnedPreferences = z.infer<typeof learnedPreferencesSchema>;
+
+export const consentSchema = z.object({
+  accepted: z.boolean(),
+  version: z.literal(1),
+  acceptedAt: isoDateSchema.optional(),
+});
+
+export const appSettingsSchema = z.object({
+  consent: consentSchema,
+  onboardingComplete: z.boolean(),
+  retention: retentionPolicySchema,
+  publicResearchEnabled: z.boolean(),
+  selectedSources: z.array(sourceNameSchema).min(1).max(5),
+  providerValidation: z.object({
+    gemini: providerValidationSchema,
+    groq: providerValidationSchema,
+  }),
+});
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+
+export const postTargetTypeSchema = z.enum(['post', 'comment', 'reply']);
+export type PostTargetType = z.infer<typeof postTargetTypeSchema>;
 
 export const discussionItemSchema = z.object({
-  participantLabel: z.string().min(1),
-  text: z.string().min(1),
-  depth: z.number().int().min(0),
+  id: boundedText(160),
+  author: boundedText(160),
+  text: boundedText(4_000),
+  depth: z.union([z.literal(0), z.literal(1)]),
   isTarget: z.boolean(),
 });
 export type DiscussionItem = z.infer<typeof discussionItemSchema>;
 
 export const postContextSchema = z.object({
   schemaVersion: z.literal(1),
-  extractionVersion: z.string().min(1),
-  surface: supportedSurfaceSchema,
-  visiblePostText: z.string().min(1),
-  reactionSummary: z.string().optional(),
-  visibleDiscussion: z.array(discussionItemSchema),
+  extractionVersion: boundedText(40),
+  surface: z.enum(['feed', 'post-detail']),
+  author: boundedText(160),
+  postText: boundedText(12_000),
+  postPermalink: linkedInUrlSchema.optional(),
+  reactionSummary: optionalBoundedText(400),
+  linkPreview: optionalBoundedText(1_200),
+  discussion: z.array(discussionItemSchema).max(120),
   responseTarget: z.object({
-    type: responseTargetTypeSchema,
-    participantLabel: z.string().min(1).optional(),
-    text: z.string().min(1),
+    type: postTargetTypeSchema,
+    author: boundedText(160),
+    text: boundedText(4_000),
   }),
-  excerpt: z.string().min(1).max(280),
-  extractedAt: z.iso.datetime(),
+  excerpt: boundedText(320),
+  wordCount: z.number().int().positive().max(20_000),
+  extractedAt: isoDateSchema,
 });
 export type PostContext = z.infer<typeof postContextSchema>;
 
-export const engagementProfileSchema = z.object({
-  schemaVersion: z.literal(1),
-  role: z.string().max(160),
-  industries: z.array(z.string().min(1).max(80)).max(12),
-  expertise: z.array(z.string().min(1).max(120)).max(24),
-  audience: z.string().max(400),
-  goals: z.array(z.string().min(1).max(200)).max(12),
-  tone: z.string().max(240),
-  preferredLanguage: z.string().max(80).optional(),
-  topicsToAvoid: z.array(z.string().min(1).max(160)).max(24),
-  allowEmoji: z.boolean(),
-  allowHashtags: z.boolean(),
-  source: z.enum(['manual', 'profile-pdf']),
-  updatedAt: z.iso.datetime(),
+export const bilingualSummarySchema = z.object({
+  english: boundedText(1_000),
+  bangla: boundedText(1_000),
 });
-export type EngagementProfile = z.infer<typeof engagementProfileSchema>;
+export type BilingualSummary = z.infer<typeof bilingualSummarySchema>;
 
-export const draftStrategySchema = z.enum([
-  'professional-insight',
-  'specific-question',
-  'support-and-extend',
-  'constructive-challenge',
+export const revisionSchema = z.object({
+  id: uuidSchema,
+  text: boundedText(12_000),
+  createdAt: isoDateSchema,
+  provider: providerNameSchema,
+  pinned: z.boolean(),
+});
+export type Revision = z.infer<typeof revisionSchema>;
+
+export const feedbackSchema = z.object({
+  id: uuidSchema,
+  rating: z.enum(['liked', 'disliked']).nullable(),
+  generatedText: boundedText(12_000),
+  editedText: boundedText(12_000),
+  createdAt: isoDateSchema,
+});
+export type Feedback = z.infer<typeof feedbackSchema>;
+
+export const replyDirectionIdSchema = z.enum(['insight', 'question', 'extend', 'challenge']);
+export type ReplyDirectionId = z.infer<typeof replyDirectionIdSchema>;
+
+export const replyDirectionSchema = z.object({
+  id: replyDirectionIdSchema,
+  generatedText: boundedText(4_000),
+  currentText: boundedText(4_000),
+  approach: boundedText(800),
+  revisions: z.array(revisionSchema).max(30),
+  feedback: feedbackSchema.optional(),
+});
+export type ReplyDirection = z.infer<typeof replyDirectionSchema>;
+
+export const replyOutputSchema = z.object({
+  title: boundedText(120),
+  summary: bilingualSummarySchema,
+  reviewNote: z.string().trim().max(800),
+  directions: z
+    .array(replyDirectionSchema.omit({ revisions: true, feedback: true }))
+    .length(4)
+    .superRefine((value, context) => {
+      const actual = new Set(value.map((item) => item.id));
+      for (const id of replyDirectionIdSchema.options) {
+        if (!actual.has(id))
+          context.addIssue({ code: 'custom', message: `Missing ${id} direction` });
+      }
+
+      const drafts = new Map<string, number>();
+      value.forEach((item, index) => {
+        if (item.currentText !== item.generatedText) {
+          context.addIssue({
+            code: 'custom',
+            message: 'The initial current text must match the generated text',
+            path: [index, 'currentText'],
+          });
+        }
+
+        const normalizedDraft = stripReplyDirectionPrefix(item.generatedText)
+          .normalize('NFKC')
+          .replace(/\s+/gu, ' ')
+          .toLowerCase();
+        if (!normalizedDraft) {
+          context.addIssue({
+            code: 'custom',
+            message: 'A reply direction must contain text after its label',
+            path: [index, 'generatedText'],
+          });
+        }
+        const duplicateOf = drafts.get(normalizedDraft);
+        if (duplicateOf !== undefined) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Each reply direction must contain a distinct draft',
+            path: [index, 'generatedText'],
+          });
+        } else {
+          drafts.set(normalizedDraft, index);
+        }
+      });
+    }),
+});
+export type ReplyOutput = z.infer<typeof replyOutputSchema>;
+
+export type ReplyDraftLanguage = 'english' | 'bangla' | 'mixed';
+
+export function replyOutputSchemaForLanguage(language: ReplyDraftLanguage) {
+  return replyOutputSchema.superRefine((value, context) => {
+    if (language === 'mixed') return;
+    value.directions.forEach((direction, index) => {
+      if (detectReplyLanguage(direction.generatedText) !== language) {
+        context.addIssue({
+          code: 'custom',
+          message: `Reply draft must be written in ${language}`,
+          path: ['directions', index, 'generatedText'],
+        });
+      }
+    });
+  });
+}
+
+export const rewriteGoalSchema = z.enum([
+  'clearer',
+  'shorter',
+  'more-professional',
+  'more-conversational',
+  'custom',
 ]);
-export type DraftStrategy = z.infer<typeof draftStrategySchema>;
+export type RewriteGoal = z.infer<typeof rewriteGoalSchema>;
 
-const responseDraftTextSchema = z.string().min(1).max(1200);
-const responseDraftSchema = z.object({
-  strategy: draftStrategySchema,
-  text: responseDraftTextSchema,
+export const rewriteOutputSchema = z.object({
+  rewrite: boundedText(12_000),
 });
 
-export const currentDraftSetSchema = z.tuple([
-  z.object({ strategy: z.literal('professional-insight'), text: responseDraftTextSchema }),
-  z.object({ strategy: z.literal('specific-question'), text: responseDraftTextSchema }),
-  z.object({ strategy: z.literal('support-and-extend'), text: responseDraftTextSchema }),
-  z.object({ strategy: z.literal('constructive-challenge'), text: responseDraftTextSchema }),
-]);
-
-const compatibleDraftSetSchema = z.union([
-  currentDraftSetSchema,
-  responseDraftSchema.array().length(3),
-]);
-
-export const engagementRiskSchema = z.object({
-  category: z.enum(['professional', 'privacy', 'safety', 'credibility', 'regulated-claim']),
-  severity: z.enum(['low', 'medium', 'high']),
-  description: z.string().min(1).max(400),
+export const sourceEvidenceSchema = z.object({
+  id: boundedText(240),
+  source: sourceNameSchema,
+  title: boundedText(320),
+  excerpt: boundedText(1_500),
+  url: httpsUrlSchema,
+  tags: z.array(boundedText(80)).max(12),
+  publishedAt: isoDateSchema.optional(),
+  aggregateSignal: z.string().trim().max(240),
 });
-export type EngagementRisk = z.infer<typeof engagementRiskSchema>;
+export type SourceEvidence = z.infer<typeof sourceEvidenceSchema>;
 
-export const analysisResultSchema = z.object({
-  schemaVersion: z.literal(1),
-  summary: z.object({
-    overview: z.string().min(1).max(800),
-    themes: z.array(z.string().min(1).max(160)).min(1).max(8),
-    intent: z.string().min(1).max(400),
-    uncertainties: z.array(z.string().min(1).max(300)).max(8),
-    risks: z.array(engagementRiskSchema).max(8),
+export const ideaCandidateSchema = z.object({
+  id: uuidSchema,
+  title: boundedText(320),
+  fit: z.enum(['strong', 'good']),
+  rationale: boundedText(800),
+  improvement: z.string().trim().max(600),
+  source: sourceEvidenceSchema,
+});
+export type IdeaCandidate = z.infer<typeof ideaCandidateSchema>;
+
+export const ideaOutputSchema = z.object({
+  ideas: z
+    .array(
+      z.object({
+        sourceEvidenceId: boundedText(240),
+        title: boundedText(320),
+        fit: z.enum(['strong', 'good']),
+        rationale: boundedText(800),
+        improvement: z.string().trim().max(600),
+      }),
+    )
+    .max(5),
+});
+
+export const postOutputSchema = z.object({
+  summary: bilingualSummarySchema,
+  post: boundedText(12_000),
+  direction: boundedText(800),
+});
+
+const historyBaseSchema = z.object({
+  id: uuidSchema,
+  createdAt: isoDateSchema,
+  updatedAt: isoDateSchema,
+  provider: providerNameSchema,
+});
+
+export const replyHistorySchema = historyBaseSchema.extend({
+  type: z.literal('reply'),
+  title: boundedText(120).optional(),
+  source: z.object({
+    author: boundedText(160),
+    permalink: linkedInUrlSchema.optional(),
+    postExcerpt: boundedText(320),
+    targetExcerpt: boundedText(800),
+    wordCount: z.number().int().positive().max(20_000).optional(),
   }),
-  drafts: compatibleDraftSetSchema,
-  language: z.string().min(1).max(80),
-  model: z.string().min(1),
-  generatedAt: z.iso.datetime(),
+  summary: bilingualSummarySchema,
+  reviewNote: z.string().trim().max(800),
+  selectedDirection: replyDirectionIdSchema,
+  directions: z.array(replyDirectionSchema).length(4),
 });
-export type AnalysisResult = z.infer<typeof analysisResultSchema>;
+export type ReplyHistoryRecord = z.infer<typeof replyHistorySchema>;
 
-export const historyEntrySchema = z.object({
-  id: z.string().min(1),
-  createdAt: z.iso.datetime(),
-  responseTargetType: responseTargetTypeSchema,
-  postExcerpt: z.string().min(1).max(280),
-  summary: analysisResultSchema.shape.summary,
-  drafts: analysisResultSchema.shape.drafts,
-  language: z.string().min(1).max(80),
-  model: z.string().min(1),
+export const rewriteHistorySchema = historyBaseSchema.extend({
+  type: z.literal('rewrite'),
+  original: boundedText(12_000),
+  goal: rewriteGoalSchema,
+  customGoal: z.string().trim().max(600),
+  generatedText: boundedText(12_000),
+  currentText: boundedText(12_000),
+  revisions: z.array(revisionSchema).max(30),
+  feedback: feedbackSchema.optional(),
 });
-export type HistoryEntry = z.infer<typeof historyEntrySchema>;
+export type RewriteHistoryRecord = z.infer<typeof rewriteHistorySchema>;
 
-export const lengthModeSchema = z.enum(['concise', 'standard', 'detailed']);
-export type LengthMode = z.infer<typeof lengthModeSchema>;
-
-export const appSettingsSchema = z.object({
-  schemaVersion: z.literal(2),
-  onboardingComplete: z.boolean(),
-  analysisConsent: z.boolean(),
-  riskAcknowledged: z.boolean(),
-  rememberCredential: z.boolean(),
-  preferredLanguage: z.string().max(80).optional(),
-  lengthMode: lengthModeSchema,
+export const ideaHistorySchema = historyBaseSchema.extend({
+  type: z.literal('idea'),
+  title: boundedText(320),
+  origin: z.discriminatedUnion('kind', [
+    z.object({ kind: z.literal('source'), evidence: sourceEvidenceSchema }),
+    z.object({ kind: z.literal('experience'), lesson: boundedText(5_000) }),
+  ]),
+  summary: bilingualSummarySchema.optional(),
+  direction: boundedText(800),
+  generatedText: boundedText(12_000),
+  currentText: boundedText(12_000),
+  revisions: z.array(revisionSchema).max(30),
+  feedback: feedbackSchema.optional(),
 });
-export type AppSettings = z.infer<typeof appSettingsSchema>;
+export type IdeaHistoryRecord = z.infer<typeof ideaHistorySchema>;
 
-export const defaultSettings: AppSettings = {
-  schemaVersion: 2,
-  onboardingComplete: false,
-  analysisConsent: false,
-  riskAcknowledged: false,
-  rememberCredential: false,
-  lengthMode: 'standard',
-};
-
-export const analysisErrorCodeSchema = z.enum([
-  'busy',
-  'context-overflow',
-  'credential-missing',
-  'permission-missing',
-  'provider-auth',
-  'provider-balance',
-  'provider-rate-limit',
-  'provider-response-invalid',
-  'provider-unavailable',
-  'unsupported-layout',
-  'unknown',
+export const workHistoryRecordSchema = z.discriminatedUnion('type', [
+  replyHistorySchema,
+  rewriteHistorySchema,
+  ideaHistorySchema,
 ]);
-export type AnalysisErrorCode = z.infer<typeof analysisErrorCodeSchema>;
+export type WorkHistoryRecord = z.infer<typeof workHistoryRecordSchema>;
+
+export const appDataSchema = z.object({
+  schemaVersion: z.literal(1),
+  settings: appSettingsSchema,
+  profile: writingProfileSchema,
+  learnedPreferences: learnedPreferencesSchema,
+  history: z.array(workHistoryRecordSchema).max(5_000),
+});
+export type AppData = z.infer<typeof appDataSchema>;
+
+export const activeTabSchema = z.enum(['reply', 'generate', 'idea', 'history', 'settings']);
+export type ActiveTab = z.infer<typeof activeTabSchema>;
+
+export const analysisStageSchema = z.enum([
+  'opening',
+  'checking-setup',
+  'extracting',
+  'validating',
+  'analyzing',
+  'saving',
+]);
 
 export const analysisStateSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('idle') }),
   z.object({
-    status: z.literal('running'),
-    requestId: z.string(),
-    targetType: responseTargetTypeSchema,
-    excerpt: z.string().max(280),
-    startedAt: z.iso.datetime(),
+    status: z.literal('pending'),
+    requestId: uuidSchema,
+    tabId: z.number().int().positive(),
+    frameId: z.number().int().nonnegative().default(0),
+    requestedAt: isoDateSchema,
   }),
   z.object({
-    status: z.literal('success'),
-    requestId: z.string(),
-    context: postContextSchema,
-    result: analysisResultSchema,
+    status: z.literal('running'),
+    requestId: uuidSchema,
+    tabId: z.number().int().positive(),
+    frameId: z.number().int().nonnegative().default(0),
+    stage: analysisStageSchema,
+    startedAt: isoDateSchema,
   }),
+  z.object({ status: z.literal('success'), requestId: uuidSchema, recordId: uuidSchema }),
   z.object({
     status: z.literal('error'),
-    requestId: z.string().optional(),
-    code: analysisErrorCodeSchema,
-    message: z.string(),
+    requestId: uuidSchema.optional(),
+    code: boundedText(80),
+    message: boundedText(800),
   }),
 ]);
 export type AnalysisState = z.infer<typeof analysisStateSchema>;
+
+export const ideaSessionSchema = z.object({
+  id: uuidSchema,
+  createdAt: isoDateSchema,
+  candidates: z.array(ideaCandidateSchema).max(5),
+  unavailableSources: z.array(sourceNameSchema).max(5),
+  createdRecordIds: z.record(uuidSchema, uuidSchema),
+});
+export type IdeaSession = z.infer<typeof ideaSessionSchema>;
+
+export const generateComposeSchema = z.object({
+  original: z.string().max(12_000),
+  goal: rewriteGoalSchema,
+  customGoal: z.string().max(600),
+});
+
+export const sessionStateSchema = z.object({
+  activeTab: activeTabSchema,
+  activeRecordId: uuidSchema.optional(),
+  analysis: analysisStateSchema,
+  calibration: calibrationRequestStateSchema.default({ status: 'idle' }),
+  generateCompose: generateComposeSchema,
+  ideaView: z.enum(['search', 'results', 'experience', 'post']),
+  ideaSession: ideaSessionSchema.optional(),
+  experienceLesson: z.string().max(5_000),
+});
+export type SessionState = z.infer<typeof sessionStateSchema>;
+
+export const activeJobLeaseSchema = z.object({
+  ownerId: uuidSchema,
+  expiresAt: z.number().int().positive(),
+});
+export type ActiveJobLease = z.infer<typeof activeJobLeaseSchema>;
+
+export const schedulePreviewSchema = z
+  .object({
+    enabled: z.boolean(),
+    frequency: z.enum(['hourly', 'daily', 'weekly', 'monthly']),
+    weekday: z
+      .enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+      .optional(),
+    day: z.coerce.number().int().min(1).max(28).optional(),
+    time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Choose a valid time.'),
+    email: z.union([z.literal(''), z.email('Enter a valid email address.')]),
+    emailEnabled: z.boolean(),
+  })
+  .superRefine((value, context) => {
+    if (!value.enabled) return;
+    if (value.frequency === 'weekly' && !value.weekday) {
+      context.addIssue({
+        code: 'custom',
+        path: ['weekday'],
+        message: 'Choose a weekday.',
+      });
+    }
+    if (value.frequency === 'monthly' && value.day === undefined) {
+      context.addIssue({ code: 'custom', path: ['day'], message: 'Choose a day.' });
+    }
+    if (value.emailEnabled && !value.email) {
+      context.addIssue({
+        code: 'custom',
+        path: ['email'],
+        message: 'Enter an email address for notifications.',
+      });
+    }
+  });
+export type SchedulePreview = z.infer<typeof schedulePreviewSchema>;
+
+export const defaultAppData: AppData = {
+  schemaVersion: 1,
+  settings: {
+    consent: { accepted: false, version: 1 },
+    onboardingComplete: false,
+    retention: 'latest-20',
+    publicResearchEnabled: false,
+    selectedSources: ['hacker-news', 'dev', 'medium', 'lobsters', 'stack-overflow'],
+    providerValidation: {
+      gemini: { state: 'missing', credentialVersion: 0 },
+      groq: { state: 'missing', credentialVersion: 0 },
+    },
+  },
+  profile: {
+    role: '',
+    topics: [],
+    audience: '',
+    tone: 'conversational',
+    customTone: '',
+    writingLanguage: 'match-source',
+    length: 'standard',
+    allowEmoji: false,
+    allowHashtags: false,
+    styleGuide: '',
+    writingSamples: [],
+  },
+  learnedPreferences: {
+    acceptedSummary: '',
+    feedbackCount: 0,
+    analyzedFeedbackIds: [],
+    directionScores: {},
+    featureScores: {},
+    scoredFeedbackIds: [],
+  },
+  history: [],
+};
+
+export const defaultSessionState: SessionState = {
+  activeTab: 'reply',
+  analysis: { status: 'idle' },
+  calibration: { status: 'idle' },
+  generateCompose: { original: '', goal: 'clearer', customGoal: '' },
+  ideaView: 'search',
+  experienceLesson: '',
+};
+
+export function isProfileComplete(profile: WritingProfile): boolean {
+  return (
+    profile.role.trim().length > 0 &&
+    profile.topics.some((topic) => topic.trim().length > 0) &&
+    profile.audience.trim().length > 0
+  );
+}
+
+export function isProviderReady(settings: AppSettings): boolean {
+  return (
+    settings.providerValidation.gemini.state === 'valid' &&
+    settings.providerValidation.groq.state === 'valid'
+  );
+}

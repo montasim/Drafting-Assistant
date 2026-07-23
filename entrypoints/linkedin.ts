@@ -1,16 +1,20 @@
 import { defineUnlistedScript } from 'wxt/utils/define-unlisted-script';
 import { extractLinkedInPost } from '../src/content/linkedin-extractor';
-import { toAppError } from '../src/application/errors';
+import { AppError, toAppError } from '../src/application/errors';
 import { runtimeRequestSchema, type RuntimeResponse } from '../src/shared/protocol';
+import {
+  captureLayoutCalibration,
+  clearCalibrationCapture,
+  getEphemeralLayoutRecipe,
+  validateLayoutCalibrationProposal,
+} from '../src/content/layout-calibration';
 
 export default defineUnlistedScript(() => {
-  const scope = globalThis as typeof globalThis & {
-    __professionalDraftingAssistantLoaded?: boolean;
-  };
-  if (scope.__professionalDraftingAssistantLoaded) return;
-  scope.__professionalDraftingAssistantLoaded = true;
-  let lastContextTarget: Element | null = null;
+  const scope = globalThis as typeof globalThis & { __thoughtlineLinkedInLoaded?: boolean };
+  if (scope.__thoughtlineLinkedInLoaded) return;
+  scope.__thoughtlineLinkedInLoaded = true;
 
+  let lastContextTarget: Element | null = null;
   document.addEventListener(
     'contextmenu',
     (event) => {
@@ -21,15 +25,66 @@ export default defineUnlistedScript(() => {
 
   chrome.runtime.onMessage.addListener(
     (raw: unknown, _sender, sendResponse: (response: RuntimeResponse) => void) => {
-      const request = runtimeRequestSchema.safeParse(raw);
-      if (!request.success || request.data.type !== 'content:extract-selected-post') return false;
+      const parsed = runtimeRequestSchema.safeParse(raw);
+      if (!parsed.success || !parsed.data.type.startsWith('content:')) return false;
       try {
-        if (!lastContextTarget?.isConnected)
-          throw new Error('Right-click a post again, then choose Analyze this post.');
-        sendResponse({ ok: true, context: extractLinkedInPost(lastContextTarget) });
+        if (parsed.data.type === 'content:clear-calibration') {
+          clearCalibrationCapture();
+          sendResponse({ ok: true });
+          return false;
+        }
+        if (!lastContextTarget?.isConnected) {
+          throw new AppError(
+            'no-post-found',
+            'Right-click the LinkedIn post again, then choose Thoughtline.',
+          );
+        }
+        if (parsed.data.type === 'content:capture-calibration') {
+          sendResponse({
+            ok: true,
+            capture: captureLayoutCalibration(
+              lastContextTarget,
+              parsed.data.requestId,
+              parsed.data.kind,
+            ),
+          });
+          return false;
+        }
+        if (parsed.data.type === 'content:validate-calibration') {
+          sendResponse({
+            ok: true,
+            candidate: validateLayoutCalibrationProposal(
+              parsed.data.requestId,
+              parsed.data.proposal,
+              parsed.data.kind,
+            ),
+          });
+          return false;
+        }
+        if (parsed.data.type !== 'content:extract-selected-post') return false;
+        const ephemeral = getEphemeralLayoutRecipe(lastContextTarget);
+        sendResponse({
+          ok: true,
+          context: extractLinkedInPost(lastContextTarget, window.location.href, [
+            ...parsed.data.recipes,
+            ...(ephemeral ? [ephemeral] : []),
+          ]),
+        });
       } catch (error) {
         const appError = toAppError(error);
-        sendResponse({ ok: false, code: appError.code, message: appError.message });
+        const cause =
+          appError.causeValue &&
+          typeof appError.causeValue === 'object' &&
+          'recipeId' in appError.causeValue &&
+          typeof appError.causeValue.recipeId === 'string'
+            ? appError.causeValue.recipeId
+            : undefined;
+        sendResponse({
+          ok: false,
+          code: appError.code,
+          message: appError.message,
+          ...(cause ? { recipeId: cause } : {}),
+        });
       }
       return false;
     },

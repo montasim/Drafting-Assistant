@@ -1,20 +1,38 @@
-import type { AnalysisErrorCode } from '../domain/schemas';
+export type AppErrorCode =
+  | 'busy'
+  | 'cancelled'
+  | 'consent-required'
+  | 'context-overflow'
+  | 'credential-invalid'
+  | 'credential-missing'
+  | 'invalid-input'
+  | 'invalid-message'
+  | 'linkedin-not-open'
+  | 'no-post-found'
+  | 'permission-missing'
+  | 'provider-rate-limit'
+  | 'provider-response-invalid'
+  | 'provider-unavailable'
+  | 'setup-incomplete'
+  | 'storage-failed'
+  | 'unsupported-layout'
+  | 'unknown';
 
 export class AppError extends Error {
   constructor(
-    public readonly code: AnalysisErrorCode,
+    readonly code: AppErrorCode,
     message: string,
-    public readonly retryable = false,
+    readonly causeValue?: unknown,
   ) {
     super(message);
     this.name = 'AppError';
   }
 }
 
-export function toAppError(error: unknown): AppError {
-  if (error instanceof AppError) return error;
-  return new AppError(
-    'unknown',
-    error instanceof Error ? error.message : 'An unexpected error occurred.',
-  );
+export function toAppError(value: unknown): AppError {
+  if (value instanceof AppError) return value;
+  if (value instanceof DOMException && value.name === 'AbortError') {
+    return new AppError('cancelled', 'The activity was cancelled.', value);
+  }
+  return new AppError('unknown', 'Thoughtline could not complete this activity.', value);
 }

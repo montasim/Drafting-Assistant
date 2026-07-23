@@ -1,0 +1,372 @@
+@import 'tailwindcss';
+@import 'charter-webfont/charter.css';
+@import '@fontsource/noto-sans/latin-400.css';
+@import '@fontsource/noto-sans/latin-500.css';
+@import '@fontsource/noto-sans/latin-600.css';
+@import '@fontsource/noto-sans/latin-700.css';
+@import '@fontsource/noto-sans-bengali/400.css';
+@import '@fontsource/noto-sans-bengali/500.css';
+@import '@fontsource/noto-sans-bengali/600.css';
+@import '@fontsource/noto-sans-bengali/700.css';
+@import '@fontsource/roboto-mono/latin-400.css';
+@import '@fontsource/roboto-mono/latin-500.css';
+
+@theme {
+  --color-canvas: #f3f6fa;
+  --color-surface: #fcfdfe;
+  --color-ink: #203247;
+  --color-muted: #596b80;
+  --color-primary: #365f91;
+  --color-primary-strong: #294b72;
+  --color-proof: #397773;
+  --color-proof-soft: #edf7f4;
+  --color-rule: #d5dee8;
+  --color-field: #b8c5d4;
+  --color-tint: #eaf0f6;
+  --color-soft: #f7f9fc;
+  --color-warning: #76501b;
+  --color-warning-bg: #fff8e8;
+  --color-danger: #963b3b;
+  --color-danger-bg: #fff4f3;
+  --color-focus: #176f8f;
+  --font-display: Charter, 'Bitstream Charter', Georgia, serif;
+  --font-body: 'Noto Sans', 'Noto Sans Bengali', sans-serif;
+  --font-utility: 'Roboto Mono', monospace;
+  --shadow-panel: 0 20px 60px rgb(32 50 71 / 0.14);
+}
+
+@layer base {
+  html {
+    min-height: 100%;
+    background: var(--color-canvas);
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    min-width: 320px;
+    background: var(--color-canvas);
+  }
+}
+
+@keyframes editor-action-pop {
+  45% {
+    transform: translateY(-1px) scale(1.08);
+  }
+}
+
+@keyframes editor-action-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes action-confirm {
+  45% {
+    transform: translateY(-1px) scale(1.04);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-proof) 14%, transparent);
+  }
+}
+
+@keyframes view-arrive {
+  from {
+    opacity: 0.68;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes tab-settle {
+  from {
+    opacity: 0.7;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes accordion-open {
+  from {
+    height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes accordion-close {
+  from {
+    height: var(--radix-accordion-content-height);
+    opacity: 1;
+  }
+
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes surface-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-arrive {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px)) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes popover-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.985);
+  }
+}
+
+.ui-action {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) {
+  .ui-action:not(:disabled):hover {
+    box-shadow: 0 3px 8px rgb(32 50 71 / 0.1);
+  }
+}
+
+.ui-action:not(:disabled):active {
+  transform: translateY(1px) scale(0.97);
+  box-shadow: none;
+}
+
+.ui-action[aria-pressed='true']:not(.editor-action-button),
+.ui-action[data-confirmed='true'] {
+  animation: action-confirm 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-view {
+  animation: view-arrive 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-reveal {
+  animation: popover-arrive 170ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-inline-action {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 160ms ease;
+}
+
+.motion-inline-action:active {
+  transform: scale(0.96);
+}
+
+.motion-nav-action {
+  transition:
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.motion-nav-action:not([aria-current='page']):active {
+  transform: scale(0.95);
+}
+
+.motion-nav-action[aria-current='page'] {
+  animation: tab-settle 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-tab {
+  transition:
+    transform 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.motion-tab:active {
+  transform: scale(0.96);
+}
+
+.motion-tab[data-state='active'] {
+  animation: tab-settle 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-disclosure {
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.motion-disclosure:hover {
+  background: color-mix(in srgb, var(--color-tint) 55%, transparent);
+}
+
+.motion-disclosure:active {
+  background: var(--color-tint);
+}
+
+.motion-accordion-content[data-state='open'] {
+  animation: accordion-open 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-accordion-content[data-state='closed'] {
+  animation: accordion-close 160ms ease-in;
+}
+
+.motion-overlay {
+  animation: surface-fade 160ms ease-out;
+}
+
+.motion-dialog {
+  animation: dialog-arrive 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-popover,
+.motion-tooltip {
+  transform-origin: var(--radix-popper-transform-origin);
+  animation: popover-arrive 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-select-trigger {
+  transition:
+    transform 140ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.motion-select-trigger:active {
+  transform: scale(0.985);
+}
+
+.motion-select-trigger svg {
+  transition: transform 180ms ease;
+}
+
+.motion-select-trigger[data-state='open'] svg {
+  transform: rotate(180deg);
+}
+
+.motion-switch {
+  transition: transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.motion-switch:active {
+  transform: scale(0.92);
+}
+
+.editor-action-button {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+@media (hover: hover) {
+  .editor-action-button:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgb(32 50 71 / 0.12);
+  }
+}
+
+.editor-action-button:not(:disabled):active {
+  transform: translateY(1px) scale(0.92);
+  box-shadow: none;
+}
+
+.editor-action-button[data-animating='true'] {
+  animation: editor-action-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.editor-action-button[data-regenerating='true'] svg {
+  animation: editor-action-spin 620ms cubic-bezier(0.55, 0, 0.45, 1);
+}
+
+.editor-action-button[data-copied='true'] {
+  border-color: color-mix(in srgb, var(--color-proof) 45%, transparent);
+  color: var(--color-proof);
+  background: var(--color-proof-soft);
+}
+
+.editor-action-button[data-copied='true'] svg {
+  animation: editor-action-pop 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.calibration-bracket {
+  position: relative;
+  padding-left: 18px;
+}
+
+.calibration-bracket::before,
+.calibration-bracket::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 10px;
+  border-left: 2px solid #4f918b;
+}
+
+.calibration-bracket::before {
+  top: 0;
+  height: 50%;
+  border-top: 2px solid #4f918b;
+  border-top-left-radius: 7px;
+}
+
+.calibration-bracket::after {
+  bottom: 0;
+  height: 50%;
+  border-bottom: 2px solid #4f918b;
+  border-bottom-left-radius: 7px;
+}
+
+.calibration-evidence-card {
+  box-shadow: 0 12px 30px rgb(44 86 100 / 0.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-action,
+  .motion-view,
+  .motion-reveal,
+  .motion-inline-action,
+  .motion-nav-action,
+  .motion-tab,
+  .motion-disclosure,
+  .motion-disclosure *,
+  .motion-accordion-content,
+  .motion-overlay,
+  .motion-dialog,
+  .motion-popover,
+  .motion-tooltip,
+  .motion-select-trigger,
+  .motion-select-trigger svg,
+  .motion-switch,
+  .editor-action-button,
+  .editor-action-button svg {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
