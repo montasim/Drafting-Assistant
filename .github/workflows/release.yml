@@ -10,6 +10,8 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      RELEASE_ZIP: Thoughtline-${{ github.ref_name }}-chrome-unpacked.zip
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -23,13 +25,22 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - run: pnpm release:zip
-      - run: sha256sum *.zip > ../SHA256SUMS.txt
-        working-directory: .output
+      - name: Prepare unpacked Chrome archive
+        run: |
+          mkdir -p release
+          source_zip="$(find .output -maxdepth 1 -type f -name '*-chrome.zip' -print -quit)"
+          test -n "${source_zip}"
+          cp "${source_zip}" "release/${RELEASE_ZIP}"
+      - name: Validate unpacked package layout
+        run: unzip -Z1 "release/${RELEASE_ZIP}" | grep -Fxq manifest.json
+      - name: Create checksums
+        run: sha256sum "${RELEASE_ZIP}" > SHA256SUMS.txt
+        working-directory: release
       - uses: softprops/action-gh-release@v2
         with:
           name: Thoughtline ${{ github.ref_name }}
           body_path: .github/RELEASE_NOTES.md
           fail_on_unmatched_files: true
           files: |
-            .output/*.zip
-            SHA256SUMS.txt
+            release/${{ env.RELEASE_ZIP }}
+            release/SHA256SUMS.txt
