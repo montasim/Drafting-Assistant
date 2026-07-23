@@ -1,0 +1,3 @@
+# Use guarded layout calibration
+
+Thoughtline will supplement its versioned built-in LinkedIn extractor with multiple device-local Calibrated Layout Recipes created through deterministic or AI-assisted calibration because LinkedIn can change several layouts independently. Recipes use structural signals rather than exact generated selectors, require two-example validation and user confirmation, are cross-checked through Extraction Agreement, and fail closed through Calibration Ambiguity; conflicting recipes are quarantined immediately, and calibration never itself starts drafting or publishing.

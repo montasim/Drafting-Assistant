@@ -1,241 +1,189 @@
-# Professional Drafting Assistant
+# Thoughtline
 
-A user-controlled assistant that turns the context of one LinkedIn post into professional comment or reply drafts. It supports human-authored engagement rather than performing engagement on the user's behalf.
+Thoughtline is a user-controlled Chrome extension for understanding LinkedIn conversations and preparing writing that the user reviews, edits, copies, and publishes manually.
 
 ## Language
 
-**Drafting Assistant**:
-The product that analyzes one user-selected post and proposes professional responses for the user to review and copy.
-_Avoid_: Engagement bot, commenting bot, growth bot
+**Thoughtline**:
+The product that turns a user-chosen LinkedIn conversation or source into editable reply drafts, rewrites, and original post ideas without publishing on the user's behalf.
+_Avoid_: Comment bot, engagement bot, auto-poster
 
 **Post Context**:
-The already-rendered textual content associated with one user-selected post, including its text, anonymous participant roles, aggregate reaction summary, and visible discussion. It excludes participant identities, profile metadata, unloaded content, images, and video.
-_Avoid_: All post data, scraped post
+The human-visible data already rendered inside one user-selected LinkedIn post’s DOM, including names, text, aggregate engagement metadata, link-preview text, its Visible Discussion, and the Response Target. It excludes unrelated posts, hidden or unloaded content, browser/session data, media bytes, and external page contents.
+_Avoid_: Feed data, scraped page, all LinkedIn content
 
-**Visible Post Text**:
-Text rendered within the selected post, including ordinary post text, repost commentary, quoted post text, poll choices, and link-preview titles or descriptions. It excludes the contents of external link destinations.
-_Avoid_: Linked article, external page content
-
-**Untrusted Post Content**:
-All text originating from a LinkedIn post or its Visible Discussion, treated solely as data and never as instructions for the provider or extension.
-_Avoid_: User prompt, embedded instruction
-
-**Untrusted Discovery Content**:
-All text originating from Source Evidence or Voice Samples, treated solely as data and never as instructions for the provider or extension. It cannot enable tools, access other extension data, or alter trusted generation rules.
-_Avoid_: Provider instruction, trusted example, executable content
-
-**Analysis Request**:
-A single, explicit user instruction to analyze one Post Context. Enabling the extension alone never creates one, and only one Analysis Request may be active at a time.
-_Avoid_: Scan, automatic analysis
-
-**Analysis Consent**:
-The user's informed and revocable authorization, provided during onboarding, for future Analysis Requests to transmit Post Context to Google Gemini immediately, including acknowledgment of Google's free-tier data-use disclosure. It does not authorize background analysis or any LinkedIn action.
-_Avoid_: Implied consent, posting permission
-
-**Discovery Consent**:
-The user's informed and revocable authorization to transmit Source Evidence, their Engagement Profile, Discovery Topics, and Voice Guide to Groq for a user-initiated Discovery Run. Voice Samples are transmitted only through an explicit voice-analysis request; Discovery Consent never authorizes LinkedIn access or submission. Revoking it cancels an active Discovery Run, revokes discovery-source and Groq host permissions, and clears current or transient discovery data while retaining local settings, Voice Guide, and Publication History until the user explicitly deletes them.
-_Avoid_: Analysis Consent, automatic opt-in, posting permission
-
-**Risk Acknowledgment**:
-The user's explicit confirmation that the independent product passively extracts selected LinkedIn content, is not endorsed by LinkedIn, may conflict with LinkedIn's extension policy, and carries non-zero account risk.
-_Avoid_: Liability waiver, hidden disclaimer
-
-**Passive Post Extraction**:
-The user-triggered, read-only collection of already-rendered Post Context after the user identifies one post through Chrome's context menu. It performs no LinkedIn requests, scrolling, clicking, expansion, typing, submission, or DOM mutation.
-_Avoid_: Background scraping, feed scanning, stealth extraction
-
-**Supported Post Surface**:
-A LinkedIn main-feed post or standalone post-detail page whose rendered structure the current release recognizes and tests. Profile activity, company, search, notification, group, newsletter, and embedded surfaces are deferred.
-_Avoid_: Any LinkedIn page, universal post support
-
-**Unsupported Post Layout**:
-A selected LinkedIn post whose root, Visible Post Text, Response Target, or discussion structure cannot be identified uniquely and validated. It produces no provider request or Response Draft.
-_Avoid_: Partial post, best-effort post
-
-**Visible Discussion**:
-The discussion content included in Post Context when an Analysis Request is made. A post target includes every rendered comment and reply; a discussion target includes only its Visible Thread, and hidden, collapsed, paginated, or otherwise unloaded content is never included.
-_Avoid_: All comments
-
-**Visible Thread**:
-The top-level comment and every reply already rendered beneath it when a comment or reply is selected as the Response Target. It is included alongside Visible Post Text and excludes unrelated comment threads and the reply composer.
-_Avoid_: Comment tree, all discussion, reply editor
-
-**Context Overflow**:
-An Analysis Request whose complete Post Context, Engagement Profile, instructions, and output allowance exceed the selected model's hard context limit. It is rejected before generation without silently truncating discussion or starting a multi-pass analysis.
-_Avoid_: Partial analysis, automatic summarization
-
-**Analysis History**:
-A rolling local collection of the 20 most recent History Entries. It is not a post archive and never retains complete Post Context or Visible Discussion.
-_Avoid_: Post archive, activity log
-
-**Publication History**:
-A rolling local collection of the 20 most recent Publication Draft records, including their Source Reference, assessment summary, creation time, and model identifier. It never retains Source Evidence.
-_Avoid_: Analysis History, article archive, discovery cache
-
-**History Entry**:
-A minimized record containing creation time, Response Target type, a short post excerpt, Analysis Summary, Draft Set, Draft Language, and model identifier.
-_Avoid_: Prompt snapshot, complete analysis input
-
-**Diagnostic Bundle**:
-A user-inspectable local export containing sanitized extension version, environment, timing, and error information for support. It excludes LinkedIn content, Response Drafts, Engagement Profiles, Provider Credentials, and browsing history.
-_Avoid_: Telemetry event, remote log
-
-**Participant Label**:
-A temporary role that preserves discussion structure without identifying a LinkedIn member, such as Post Author, Target Commenter, or Commenter A.
-_Avoid_: Member name, profile identity
-
-**Reaction Summary**:
-Aggregate reaction types and counts visible on the selected post. It never contains the identities of members who reacted.
-_Avoid_: Reactor list, reaction identities
-
-**Response Draft**:
-AI-generated text proposed as either a comment on the selected post or a reply within its Visible Discussion. It is never submitted to LinkedIn by the Drafting Assistant.
-_Avoid_: Posted comment, automatic reply
-
-**Publication Draft**:
-An AI-generated standalone LinkedIn post proposed from a relevant Discovery Source item, the user's Engagement Profile, and approved voice guidance. It is always reviewed and published manually by the user.
-_Avoid_: Response Draft, generated comment, automatic post
-
-**Post Opportunity Assessment**:
-An evidence-qualified estimate of how well a Discovery Source item fits the user's professional context and audience, considering relevance, freshness, discussion value, credibility risk, and observable engagement signals. It includes uncertainty and never promises future engagement. A Discovery Run returns fewer opportunities or drafts when it lacks sufficiently relevant evidence instead of filling the requested count with generic popular content.
-_Avoid_: Sentiment analysis, engagement prediction, virality score
-
-**Opportunity Rating**:
-The descriptive outcome of a Post Opportunity Assessment: Strong opportunity, Consider, or Skip. Internal ordering values are not displayed as engagement probabilities.
-_Avoid_: Engagement percentage, viral score, success probability
-
-**Opportunity Type**:
-A classification used to diversify selected Post Opportunities: timely trend, practical learning, or strongest general fit. It describes the publishing angle rather than the source's content format.
-_Avoid_: Sentiment, source type, guaranteed slot
-
-**Source Evidence**:
-The content and metadata supplied directly by an approved Discovery Source through its API or RSS feed. It excludes arbitrary linked webpages, and a Publication Draft is not created when the available Source Evidence cannot support one.
-_Avoid_: Full article, linked-page scrape, headline assumption
-
-**Minimized Source Evidence**:
-The subset of Source Evidence permitted in a Discovery Provider request: source title, permitted excerpt, tags, age, and aggregate engagement signals. It excludes author identities, profile data, URLs, user IDs, and full discussions.
-_Avoid_: Source Reference, raw feed item, discussion transcript
-
-**Source Reference**:
-The platform name, source title, and canonical URL shown beside a Post Opportunity or Publication Draft for manual review. It remains separate from the draft and is not included when draft text is copied.
-_Avoid_: Embedded attribution, generated citation, copied credit line
-
-**Seen Item Record**:
-A local source identifier or canonical-URL fingerprint with a discovery timestamp, retained for 30 days to suppress repeated and cross-source recommendations. It contains no article or discussion text.
-_Avoid_: Browsing history, article cache, Source Evidence archive
-
-**Evidence-Bound Draft**:
-A Response Draft or Publication Draft whose personal claims are supported by the approved Engagement Profile and whose content claims are supported by its available context or Source Evidence. Source popularity is never treated as factual verification; unsupported statistics and definitive claims are omitted, while questionable claims are framed cautiously or cause the opportunity to be skipped. It qualifies uncertainty and never invents experience, relationships, results, credentials, opinions, or product usage.
-_Avoid_: Plausible anecdote, synthetic experience
-
-**Draft Edit**:
-A user's local modification to a Response Draft before copying it. It updates the corresponding History Entry but is not sent to Gemini or inserted into LinkedIn.
-_Avoid_: Refinement request, submitted comment
-
-**Analysis Summary**:
-A concise interpretation of the Response Target covering its main themes, communication intent, important uncertainty, and potential reputational risk.
-_Avoid_: Full transcript, engagement score
-
-**Engagement Risk**:
-A potential professional, privacy, safety, or credibility cost of responding to the selected content, including conflict, harassment, confidential information, regulated claims, or unsupported allegations. It prompts a visible warning and conservative drafts but leaves the engagement decision to the user.
-_Avoid_: Sentiment score, automatic refusal
-
-**Draft Set**:
-Four distinct Response Drafts accompanying an Analysis Summary: one adds a professional insight, one asks a thoughtful specific question, one supports and extends the discussion, and one offers a Constructive Challenge.
-_Avoid_: Alternatives list, generated comments
-
-**Constructive Challenge**:
-A Response Draft strategy that identifies a material contradiction or unsupported assumption, tests it with a direct question or counterpoint, and remains professionally focused without sarcasm or personal criticism.
-_Avoid_: Hostile reply, sarcastic takedown, contrarian tone
-
-**Draft Language**:
-The language used by a Draft Set, matching the Response Target by default unless the user chooses a preferred language or a per-request override. English is the fallback when the target language is uncertain.
-_Avoid_: Interface language, profile language
-
-**Length Mode**:
-The user's concise, standard, or detailed size preference for Response Drafts, interpreted relative to whether the Response Target is a post or discussion item. Standard is the default; emoji and hashtags require separate opt-in preferences.
-_Avoid_: Token limit, verbosity
-
-**Publication Length**:
-The user's short, standard, or detailed size preference for Publication Drafts: 80–150, 150–250, or 250–400 words. Standard is the default and is independent from Response Draft Length Mode.
-_Avoid_: Length Mode, token limit, LinkedIn character limit
-
-**Publication Formatting**:
-The user's standalone-post preferences for emoji and hashtags, independent from Response Draft preferences. Both are disabled by default; enabled drafts use at most three hashtags and remain plain, readable text without decorative formatting.
-_Avoid_: Comment formatting, Markdown style, engagement decoration
-
-**Publication Language**:
-The user's preferred language for Publication Drafts, defaulted initially from the Engagement Profile but managed independently afterward. It does not follow the language of Source Evidence automatically.
-_Avoid_: Source language, interface language, Response Draft language
-
-**Publication Guidance Precedence**:
-The conflict-resolution order for Publication Draft generation: safety and evidence rules first; explicit Publication Language, Publication Length, and Publication Formatting second; the saved Voice Guide third; and the Engagement Profile tone as the fallback. Generation remains available without a Voice Guide.
-_Avoid_: Prompt priority, model preference, automatic voice training
+**Untrusted Content Envelope**:
+A provider-bound, Zod-validated JSON value containing only allowlisted, normalized, bounded content from a Post Context, Calibration Evidence, Source Evidence, Profile Import, pasted draft, writing sample, or user-supplied lesson, explicitly separated from trusted system instructions. It never contains raw DOM objects or executable HTML, executable content, hidden elements, credentials, or browser/session data.
+_Avoid_: User prompt, trusted instruction, raw webpage
 
 **Response Target**:
-The content a Response Draft directly addresses. It is the selected post when the user invokes analysis from post content, or the specific comment or reply from which analysis is invoked.
-_Avoid_: Selected text, active element
+The post, comment, or reply inside the selected Post Context that the user intends to answer.
+_Avoid_: Selected text, scraped element
 
-**Manual Submission**:
-The user's independent act of reviewing, optionally editing, copying, and submitting a Response Draft through LinkedIn.
-_Avoid_: Auto-post, assisted posting
+**Visible Discussion**:
+The comments and replies already rendered inside the selected Post Context when extraction occurs. For a post target it includes every visible thread; for a comment or reply target it includes only that visible thread, and it never includes unrelated, collapsed, paginated, hidden, or separately fetched content.
+_Avoid_: All comments, complete discussion
+
+**Discussion Item**:
+One visible comment or reply within a Visible Discussion. Comment and reply items share one calibratable boundary shape; whether an item is a reply is inferred from its relationship to a visible parent rather than trained as a separate layout kind.
+_Avoid_: Comment selector, reply layout, complete thread
+
+**Passive Post Extraction**:
+The read-only collection of one Post Context after an explicit right-click action, without scrolling, clicking, expanding content, making LinkedIn requests, modifying the page, or publishing anything.
+_Avoid_: Feed scan, background scraping, LinkedIn automation
+
+**Layout Calibration**:
+A device-local, user-confirmed description of how Thoughtline can recognize visible LinkedIn post or comment boundaries when its built-in semantic extraction rules no longer match. Persistence requires validation against at least two independent visible examples; one confirmed example may repair only the current extraction. It contains structural signals rather than LinkedIn content, is never uploaded or shared across installations, and never initiates an Analysis Request.
+_Avoid_: Model training, provider training, shared selector, saved LinkedIn content
+
+**AI-Assisted Layout Calibration**:
+An explicit Foreground AI Job that sends user-approved Calibration Evidence to Gemini and, when Cross-Provider Fallback applies, Groq to propose a Calibrated Layout Recipe. The proposal remains device-local and cannot persist until it passes the same local multi-example validation and Calibration Preview as deterministic Layout Calibration.
+_Avoid_: Model training, automatic calibration, uploaded recipe, AI-approved selector
+
+**Calibration Evidence**:
+A transient, strictly bounded text representation of the visible DOM neighborhood around the user-selected calibration target, including candidate ancestors, a small number of comparable visible siblings, and trusted local geometry. It may contain raw values needed for AI-Assisted Layout Calibration but is never persisted and excludes screenshots, the rest of the page, editable or hidden content, executable content, browser/session data, extension state, and credentials.
+_Avoid_: Page DOM, HTML dump, feed capture, Post Context
+
+**Calibration Evidence Review**:
+The mandatory per-request inspection of the exact Calibration Evidence proposed for Gemini and possible Groq fallback, including its outlined scope, provider path, and size. One explicit confirmation authorizes the Gemini request and at most one Groq fallback with identical evidence; nothing is sent before confirmation.
+_Avoid_: Onboarding consent, Calibration Preview, automatic provider request
+
+**Calibration Proposal**:
+A versioned, strictly validated declarative result returned by an AI provider for local compilation into a candidate Calibrated Layout Recipe. It is untrusted data, contains no executable code or unrestricted selector, and cannot persist or extract content until local validation and Calibration Preview succeed.
+_Avoid_: Generated script, AI selector, executable rule, confirmed calibration
+
+**Calibrated Layout Recipe**:
+One bounded, user-inspectable and individually removable multi-signal structural rule within Layout Calibration, scoped to a LinkedIn surface and discussion-item kind. Exact generated classes and instance IDs are never deciding signals. At most 32 recipes may coexist per Chrome profile; the oldest quarantined recipe may be evicted for capacity, but an active recipe is never silently removed. A recipe that claims compatibility but conflicts with trusted extraction is quarantined immediately instead of forcing a match.
+_Avoid_: Global selector, CSS path, post mapping, learned content
+
+**Quarantined Layout Recipe**:
+A Calibrated Layout Recipe disabled after its first actual extraction conflict while remaining locally inspectable and removable. A non-match is not a conflict, and a quarantined recipe cannot be forced back into extraction without renewed calibration and validation.
+_Avoid_: Deleted recipe, skipped recipe, manually trusted selector
+
+**Calibration Ambiguity**:
+The state in which a proposed or saved Calibrated Layout Recipe cannot uniquely distinguish the intended visible boundary or required fields from competing DOM candidates. It produces no extraction or provider request and requires renewed user calibration.
+_Avoid_: Best match, probable extraction, automatic guess
+
+**Calibration Preview**:
+The local, temporary presentation of a proposed post or Discussion Item boundary together with its primary text, visible author or explicit neutral author label, containing post, and inferred thread depth. It must exclude unrelated text and actions before the user can confirm Layout Calibration.
+_Avoid_: Element outline, selector preview, AI analysis
+
+**Extraction Agreement**:
+The state in which Thoughtline's built-in extraction and every applicable Calibrated Layout Recipe identify equivalent visible boundaries and required fields. A disagreement is Calibration Ambiguity rather than permission for either method to override the other.
+_Avoid_: Built-in priority, calibration override, highest score
+
+**Cross-Provider Fallback**:
+One automatic retry of the same validated AI request through Groq after a Gemini-specific availability, credential, transport, quota, model, or provider-response-schema failure. A well-formed Calibration Proposal that later fails trusted local DOM validation produces Calibration Ambiguity instead of fallback.
+_Avoid_: Infinite retry, same-provider retry, local-validation override, silent data repair
+
+**Analysis Request**:
+One explicit user instruction, initiated from Chrome’s context menu, to turn one validated Post Context into a summary and four editable reply directions.
+_Avoid_: Feed scan, background analysis, automatic engagement
+
+**Foreground AI Job**:
+One provider-bound task started by the user inside the extension, covering reply analysis, rewriting, idea research, post generation, profile derivation, style analysis, AI-Assisted Layout Calibration, or credential validation. Only one Foreground AI Job may be active across the extension at a time; Scheduled Idea Searches are independent.
+_Avoid_: UI action, background schedule, provider request
+
+**AI Processing Consent**:
+The user's explicit, revocable permission for Thoughtline to send the minimum content needed for a requested Foreground AI Job directly to Gemini and, when Cross-Provider Fallback applies, to Groq. AI-Assisted Layout Calibration additionally requires a per-request Calibration Evidence Review.
+_Avoid_: API key, LinkedIn permission, scheduling-service account
+
+**Context Overflow**:
+A Foreground AI Job whose complete validated inputs, profile, instructions, and output allowance exceed the selected provider model’s accepted context. It is rejected before generation without truncation, summarization, splitting, or Cross-Provider Fallback.
+_Avoid_: Partial analysis, automatic summarization
+
+**Rewrite Draft**:
+An editable AI rewrite of content manually pasted by the user into Generate, created in the user’s configured voice and never published automatically.
+_Avoid_: Reply draft, source post, automatic edit
+
+**Writing Language**:
+The language used for generated replies, rewrites, and posts. An explicit English or Bangla choice overrides the default **Match the source**, which follows the Response Target, pasted content, Source Evidence, or supplied lesson and may preserve a natural English-Bangla mix.
+_Avoid_: Interface language, summary language, translation mode
+
+**Bilingual Summary**:
+The paired English and Bangla summaries generated together for interfaces that provide summary-language tabs, independent of the selected Writing Language.
+_Avoid_: Writing language, on-demand translation
+
+**Work History**:
+The searchable local collection of saved Reply, Idea, and Rewrite entries governed by the user’s retention setting.
+_Avoid_: Browsing history, activity tracking, provider log
+
+**History Source Snapshot**:
+The workflow-specific source material retained with a Work History entry: bounded LinkedIn references and excerpts for a Reply, bounded Source Evidence for an Idea, or the full user-pasted original for a Rewrite.
+_Avoid_: Raw DOM, complete discussion, external article
+
+**Data Archive**:
+A user-created portable snapshot of Thoughtline's local Work History, writing profile, settings, and learned preferences that structurally excludes Provider Credentials, Calibrated Layout Recipes, and transient state.
+_Avoid_: Cloud backup, credential export, Diagnostic Bundle
 
 **Provider Credential**:
-An API key for a supported AI provider, supplied and owned by the individual user. The product has no shared or bundled Provider Credential.
-_Avoid_: Extension API key, shared key, application key
+A user-supplied Gemini or Groq API key retained as device-bound encrypted data and made available only to trusted extension contexts for an explicit AI workflow.
+_Avoid_: Account password, server credential, plaintext setting
 
-**Credential Vault**:
-The extension-only persistence boundary that automatically encrypts a Provider Credential with a non-exportable device key and restores the plaintext only to protected browser-session storage. It is defense in depth rather than an operating-system keychain.
-_Avoid_: Password manager, hashed API key, guaranteed secret storage
+**Provider Readiness**:
+The state in which valid Gemini and Groq Provider Credentials are both available, allowing Gemini-primary Foreground AI Jobs with Cross-Provider Fallback.
+_Avoid_: Gemini-only mode, Groq-only mode, partially configured
 
-**Discovery Provider**:
-The AI provider that evaluates Discovery Source items and creates Publication Drafts. It is independent from the provider reserved for Response Drafts. Discovery cannot be enabled or run until its Provider Credential validates, although source and voice settings remain editable beforehand.
-_Avoid_: Scraper, source provider, automatic fallback
+**Setup Readiness**:
+The state in which AI Processing Consent, LinkedIn page permission, Provider Readiness, and the required role, topics, and audience profile fields are complete.
+_Avoid_: Provider Readiness, optional PDF import, scheduling account
 
-**Manual Provider Override**:
-The user's explicit choice to retry one failed discovery operation with the Response Draft provider when the Discovery Provider is unavailable: either the failed assessment batch or one selected draft. It is never triggered automatically and never switches the entire Discovery Run.
-_Avoid_: Provider fallback, silent retry, load balancing
+**Profile Import**:
+The temporary local extraction of professional text from the user’s own LinkedIn PDF export to propose an editable writing profile, excluding contact details and discarding the raw file immediately.
+_Avoid_: LinkedIn account connection, profile scraping, stored résumé
 
-**Voice Sample**:
-One of up to five user-authored post examples voluntarily supplied, managed, and retained locally to guide the style of future Publication Drafts. Voice Samples are not model-training data and do not establish facts about the user's experience or credentials.
-_Avoid_: Training example, borrowed post, profile evidence
+**Feedback Evidence**:
+A bounded personalization signal from an explicit positive or negative rating, a selected reply direction, or a substantial generated-to-edited change. Copying alone is not evidence.
+_Avoid_: Provider training event, public reaction, copy event, cosmetic rating
 
-**Voice Guide**:
-An editable style description derived from all submitted Voice Samples and retained locally for reuse in Publication Draft generation. It describes writing patterns but never establishes facts about the user's experience, opinions, or credentials. It changes only through explicit voice actions in Settings; editing, saving, or copying a Publication Draft never updates it automatically.
-_Avoid_: Fine-tuned model, trained persona, professional profile
+**Learned Writing Preference**:
+A user-inspectable and resettable preference derived from bounded Feedback Evidence and included in later AI requests and local ordering.
+_Avoid_: Model fine-tuning, hidden profile, permanent trait
 
-**Profile PDF**:
-A resume-format PDF that a user exports from their own LinkedIn profile and voluntarily supplies to create their professional context. A PDF of another member's profile is never accepted.
-_Avoid_: Member profile PDF, third-party profile
+**Style Guide**:
+User-approved writing guidance created from the user's own samples or edited manually and applied to later drafting requests.
+_Avoid_: Raw writing samples, Learned Writing Preference, provider training
 
-**Engagement Profile**:
-The user's editable and approved professional context, created from their own Profile PDF or through manual entry, that guides the relevance, voice, and boundaries of Response Drafts. It excludes contact details and the raw Profile PDF.
-_Avoid_: LinkedIn profile copy, user dossier, persona
+**Diagnostic Bundle**:
+A user-inspectable local support report containing extension version, environment, timings, state transitions, and sanitized error codes while structurally excluding content and credentials.
+_Avoid_: Telemetry event, remote log, analytics payload
 
-**Quota Fallback**:
-A single retry with Gemini 3.1 Flash-Lite after Gemini explicitly reports that Gemini 3.5 Flash is rate-limited or has exhausted its quota. An ambiguous timeout, network failure, authentication failure, or malformed response never starts a Quota Fallback.
-_Avoid_: Automatic retry, paid fallback
+**Scheduled Idea Search**:
+A user-configured idea search executed by a separate scheduling service at a recurring time for a signed-in user, independently of whether Chrome or the extension is open.
+_Avoid_: Chrome alarm, background feed scan
 
-**Discovery Run**:
-A user-initiated collection of recent developer-publication candidates for evaluation against the user's professional context, with at most one run active at a time. It is independent of LinkedIn content and may run concurrently with one Analysis Request without interacting with a LinkedIn page.
-_Avoid_: Scheduled discovery, LinkedIn scan, cloud crawler
+**Scheduled Idea Result**:
+The retained output of a Scheduled Idea Search that is emailed to the user and becomes available to the extension during its next synchronization.
+_Avoid_: Notification, live extension result
 
-**Discovery Request Budget**:
-The normal AI-call boundary for one Discovery Run: one compact, structured Groq request assesses all locally filtered candidates and creates up to three Publication Drafts together. The request uses a conservative preflight token estimate below the free 8,000 TPM ceiling. Voice analysis, selected-opportunity generation, and alternative generation use separate requests only after an explicit user action. A provider rate or quota limit stops the operation, preserves completed results, and displays available retry timing without automatic retries or provider switching.
-_Avoid_: Daily quota, source request limit, automatic retry budget
+**Schedule Preview**:
+The non-operational extension interface that demonstrates future Scheduled Idea Search configuration before the separate scheduling service is integrated.
+_Avoid_: Active schedule, local schedule, scheduled result
 
-**Discovery Source**:
-An approved, machine-readable publication channel considered during a Discovery Run. The initial set consists of Hacker News, DEV, Medium, Lobsters, and Stack Overflow; Reddit and daily.dev are not Discovery Sources.
-_Avoid_: Scraped website, social network feed, arbitrary URL
+**Public Source Research**:
+An optional Idea input mode that searches only user-enabled public sources after their corresponding host permissions are granted.
+_Avoid_: Web crawling, background browsing, mandatory discovery
 
-**Source Preference**:
-The user's local choice of whether a Discovery Source participates in Discovery Runs and whether it may contribute one to five recommendations. After the user opts into discovery, all five initial Discovery Sources start enabled with a target of three recommendations each; the user may deselect sources before Chrome requests their host access.
-_Avoid_: Scrape quota, platform permission, global result limit
+**Idea Search Session**:
+The temporary set of sourced Idea candidates from the latest manual search, retained only for the current Chrome session and replaced by a new search. Candidates do not become Work History until the user creates a post from one.
+_Avoid_: Idea History, saved posts, scheduled results
 
-**Source Freshness Policy**:
-The age boundary applied before opportunity ranking. Timely-trend candidates must have been published within the last seven days, while practical or educational candidates may be up to thirty days old.
-_Avoid_: Seen-item window, publication schedule, universal seven-day cutoff
+**Active Workspace**:
+The tab and workflow screen most recently used in the current Chrome session. It may point to completed Work History or temporary session work, but does not duplicate either one's content.
+_Avoid_: History record, persistent navigation, copied draft
 
-**Discovery Topic**:
-One of up to ten user-editable subjects derived initially from the Engagement Profile and used to focus Discovery Sources and Post Opportunity Assessments. Discovery Topics are managed locally in Settings.
-_Avoid_: Source tag, search history, fixed profile field
+**Approved Prototype Version**:
+An immutable, numbered Thoughtline UI snapshot. The highest version explicitly approved by the user is the visual contract for subsequent implementation; earlier versions remain available for comparison.
+_Avoid_: Overwritten prototype, unnumbered redesign, production screenshot
+
+**Experience Fallback**:
+The single guided Idea state shown when Public Source Research is disabled or produces no qualifying result; it asks the user for a real lesson before drafting an unsourced post from that lesson and the saved writing profile.
+_Avoid_: Evergreen Ideas list, sourced idea, invented experience
+
+**Source Evidence**:
+The title, excerpt, tags, timestamp, and aggregate signals supplied directly by an enabled public source’s official API or RSS feed and sufficient to support an Idea.
+_Avoid_: Linked article, crawled webpage, headline assumption
+
+**Source Reference**:
+The source name, item title, and canonical URL retained with an Idea so the user can inspect the original material.
+_Avoid_: Embedded citation, copied attribution, browsing history

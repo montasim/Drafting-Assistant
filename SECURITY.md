@@ -1,13 +1,26 @@
-# Security Policy
+# Security policy
 
-Please report suspected vulnerabilities privately to the repository maintainer when a private reporting channel is available. Otherwise, open a minimal issue that contains no secrets, personal data, LinkedIn content, or exploitable detail and ask for a private contact channel.
+## Supported versions
 
-Particularly relevant reports include credential exposure, permission-scope expansion, unauthorized provider or discovery-source requests, retained raw content, identity de-identification failures, prompt-boundary bypasses that expose extension data, and unintended LinkedIn actions.
+Security fixes are applied to the latest GitHub release. Thoughtline requires Chrome 120 or later.
 
-Never include a live Gemini or Groq API key in logs, screenshots, fixtures, issues, voice samples, or pull requests. Revoke any key that may have been exposed.
+## Reporting a vulnerability
 
-Provider keys use `chrome.storage.session` by default. Optional device retention stores only AES-256-GCM ciphertext in trusted-context `chrome.storage.local`; an automatically generated, non-exportable 256-bit key is stored separately in the extension origin's IndexedDB and used to restore the session credential at startup. IVs are random per encryption and provider purpose is authenticated as additional data. Legacy plaintext device credentials are encrypted during startup migration.
+Use the repository's private security-advisory feature when available. If it is not available, open a minimal issue asking for a private contact channel. Do not include API keys, LinkedIn content, exported archives, personal data, or working exploit details in a public issue.
 
-This is defense in depth against plaintext storage leakage, not an operating-system keychain. A compromised extension runtime or browser profile may still invoke the vault. Reports should not claim that the ciphertext alone proves a credential is unrecoverable.
+Include the affected release, Chrome version, reproduction conditions, expected impact, and whether the report involves content extraction, provider credentials, storage, import/export, or extension permissions.
 
-Discovery evidence and Voice Samples are hostile-input boundaries. They must remain data-only, must not gain browsing or tool access, and must never be able to reach provider credentials, extension storage, LinkedIn content, or runtime capabilities. Discovery-origin permission changes must not trigger LinkedIn content-script registration or reinjection.
+## Security design
+
+- All externally supplied and persisted structures are validated with Zod.
+- Web content is treated as untrusted data, normalized, bounded, and separated from provider instructions.
+- LinkedIn extraction is passive, fail-closed, and scoped to the exact right-click target.
+- Only trusted extension contexts can access credential and storage services.
+- Persistent API keys use AES-256-GCM with a non-exportable device-bound IndexedDB key and per-record IVs.
+- Gemini is attempted once; only defined provider failures can fall back once to Groq.
+- One global foreground-job lease prevents overlapping AI jobs across extension surfaces.
+- Data Archive imports are whole-file validated and merge by stable UUID plus newer update time. Credentials are structurally excluded.
+- Diagnostics exclude content and credentials.
+- Optional host and unlimited-storage permissions are requested only from direct user gestures.
+
+Device-bound encryption protects persisted keys from casual storage inspection and accidental archive inclusion. It does not protect against malware, a compromised browser profile, operating-system access, or malicious code executing with the extension's privileges. Never commit or share provider keys.

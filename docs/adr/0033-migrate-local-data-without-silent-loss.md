@@ -1,0 +1,3 @@
+# Migrate local data without silent loss
+
+Every persistent Thoughtline storage slice will carry a schema version and pass through sequential, pure, Zod-validated migrations before UI workflows or Foreground AI Jobs start. An upgrade will retain one untouched pre-migration recovery snapshot, commit migrated slices atomically, and remove the snapshot only after the new version completes a successful startup; migration failure opens a recovery state that can export the untouched snapshot and sanitized diagnostics rather than resetting defaults, dropping invalid records, or partially writing data. An older extension that encounters a newer unsupported schema will remain read-only and request an update instead of attempting a downgrade migration.

@@ -1,142 +1,168 @@
-# Professional Drafting Assistant
+# Thoughtline
 
-A local-first Chrome extension that creates professional, evidence-bound LinkedIn response drafts and manually requested standalone post ideas.
+Thoughtline is a user-controlled Chrome side-panel extension for understanding a selected LinkedIn conversation and shaping writing in your own voice. It creates four reply directions, rewrites pasted content, researches post ideas, and keeps editable work history. It never publishes for you.
 
-The extension is intentionally manual: it never posts, replies, reacts, clicks, scrolls, expands discussions, or calls LinkedIn APIs. On LinkedIn, the user right-clicks inside one post or comment and chooses **Analyze this post**. Only already-rendered text from that post and its visible discussion is minimized, de-identified, and sent to Google Gemini using the user's own API key. The user reviews, edits, copies, and submits any response themselves.
+> Status: functional development release for Chrome 120+. Scheduling is a visual preview only; it does not run jobs or send email until the separate scheduling API is integrated.
 
-> This independent project is not affiliated with LinkedIn. Its design reduces automation and data exposure, but does not guarantee compliance with LinkedIn's terms or eliminate account risk.
+## Latest release: v0.1.3
 
-## Current scope
+- Rebuilt the extension as **Thoughtline**, with a five-view side-panel workspace for Reply, Generate, Ideas, History, and Settings.
+- Added staged LinkedIn context analysis, four independently editable reply directions, sourced idea research, experience-based post drafting, and editable work history.
+- Added explicit AI consent, on-demand host permissions, encrypted provider credentials, incognito-safe storage, data import/export, storage recovery, and reviewable personalization.
+- Added Gemini-first generation with one Groq fallback, typed provider and source adapters, bounded untrusted-content envelopes, and guarded LinkedIn layout calibration.
+- Added production onboarding and Terms views, responsive and accessible UI coverage, immutable visual baselines, real-writer journey tests, and AI response-quality checks.
+- GitHub releases now include the WXT Chrome ZIP and `SHA256SUMS.txt` after the complete static, unit, build, browser, visual, and accessibility gates pass.
 
-- Chrome 120+, Manifest V3
-- LinkedIn feed and post-detail pages
-- Text only; images, video, external pages, hidden comments, and collapsed content are skipped
-- Post comment and comment-reply drafts
-- All visible, already-rendered comments and replies included in one provider request
-- Four strategies: professional insight, specific question, support-and-extend, and constructive challenge
-- Gemini bring-your-own-key with session-only storage by default and automatic encrypted device retention when requested
-- Gemini 3.5 Flash with a rate-limit-only Gemini 3.1 Flash-Lite fallback
-- Optional engagement-profile import from the user's own LinkedIn Save-to-PDF
-- Latest 20 minimized outputs stored locally
-- Manual developer-content discovery from Hacker News, DEV, Medium, Lobsters, and Stack Overflow APIs/RSS
-- Per-source enable/disable controls and one-to-five result targets
-- Profile-aware opportunity assessments and up to three ready-to-edit standalone posts
-- Groq `openai/gpt-oss-120b` bring-your-own-key for discovery, with no automatic provider fallback
-- Optional local Voice Guide derived from up to five user-authored examples
-- Separate latest-20 publication history and 30-day seen-item suppression
-- No accounts, backend, analytics, advertisements, or remote telemetry
+## Product tour
 
-## Architecture
+| Reply from one selected LinkedIn post     | Find one idea per enabled source         | Configure local, reviewable behavior            |
+| ----------------------------------------- | ---------------------------------------- | ----------------------------------------------- |
+| ![Reply view](docs/screenshots/reply.png) | ![Idea view](docs/screenshots/ideas.png) | ![Settings view](docs/screenshots/settings.png) |
 
-```text
-right-click target
-      │
-      ▼
-isolated LinkedIn script ── validates one post ── de-identifies visible text
-      │
-      ▼
-background service worker ── consent/key/model policy ── Gemini API
-      │
-      ▼
-side panel ── analysis + 3 editable drafts ── manual copy
+The screenshots above are captured from the production extension at the canonical 400 × 820 side-panel viewport and are also enforced as visual-regression baselines.
 
-manual Run discovery
-      │
-      ▼
-background service worker ── approved APIs/RSS ── local filtering/deduplication
-      │
-      ▼
-Groq structured assessment + up to 3 drafts ── review/edit/source link ── manual copy
-```
+## What works
 
-The content script is built as an unlisted WXT script and registered only after the optional `linkedin.com` permission is granted. Discovery adds no LinkedIn content script, DOM operation, navigation, composer insertion, or submission. Discovery origin permissions are optional and requested per enabled source; changing them does not resynchronize the LinkedIn integration. Credentials, profiles, voice settings, history, and request state are restricted to trusted extension contexts. Domain schemas validate every storage, runtime-message, source, extraction, and provider boundary.
+- Right-click one already-rendered LinkedIn post, comment, or reply and choose **Draft a reply with Thoughtline**.
+- Passively extract only that selected post context and its visible discussion. Thoughtline does not click, scroll, expand, fetch LinkedIn pages, or read unrelated posts.
+- Generate bilingual post summaries and four independently editable reply directions: Insight, Question, Extend, and Challenge.
+- Paste content into **Generate** and rewrite it in the configured voice.
+- Search Hacker News, DEV, Medium, Lobsters, and Stack Overflow when enabled, with at most one idea selected from each source. Every source reference links to the original item.
+- Build an editable LinkedIn post from a sourced idea or a real experience supplied by the user.
+- Search, filter, edit, revise, delete, clear, retain, export, and import Reply, Rewrite, and Idea history.
+- Configure writing language, length, tone, custom instructions, writing samples, and a reviewable style guide.
+- Derive an editable profile suggestion locally from the user's own LinkedIn PDF export; the raw PDF is not retained.
+- Learn inspectable writing preferences only from explicit ratings, selected directions, and substantial edits.
+- Use Gemini first and Groq once as automatic fallback through one provider port. Both valid API keys are required.
+- Preserve one active workspace per Chrome session and enforce one foreground AI job globally.
 
-Key decisions are recorded in [`CONTEXT.md`](./CONTEXT.md) and [`docs/adr`](./docs/adr).
+## Install from a GitHub release
 
-## Install from GitHub
+Thoughtline is distributed as a GitHub release rather than through the Chrome Web Store.
 
-Download the `chrome-unpacked.zip` file from the [latest GitHub release](https://github.com/montasim/Drafting-Assistant/releases/latest), then:
+1. Download the Chrome ZIP and `SHA256SUMS.txt` from the release.
+2. Verify the archive before installing:
 
-1. Extract the ZIP to a permanent folder.
-2. Open `chrome://extensions` in Chrome.
-3. Enable **Developer mode**.
-4. Select **Load unpacked** and choose the extracted folder containing `manifest.json`.
-5. Complete onboarding, then reload LinkedIn tabs that were already open.
+   ```bash
+   sha256sum --check SHA256SUMS.txt
+   ```
 
-Chrome loads the extension from that folder, so keep it after installation. GitHub-installed unpacked extensions do not update automatically; download and load each newer release manually.
+3. Extract the ZIP to a stable folder. Do not delete that folder while the extension is installed.
+4. Open `chrome://extensions` in Chrome 120 or later.
+5. Turn on **Developer mode**.
+6. Select **Load unpacked**, then choose the extracted folder containing `manifest.json`.
+7. Open Thoughtline from the toolbar and complete setup.
 
-## Local development
+To update a sideloaded installation, download and verify the next release, replace the extracted folder, and select **Reload** on `chrome://extensions`. Export a Data Archive first when moving the installation to another Chrome profile or device.
 
-Requirements: Node.js 24+, pnpm 11.7+.
+## First-time setup
+
+Thoughtline asks only when a capability needs permission:
+
+1. Review and accept direct AI processing consent.
+2. Allow access to LinkedIn pages. This is page permission, not LinkedIn OAuth or an account connection.
+3. Enter and validate both a [Gemini API key](https://aistudio.google.com/app/apikey) and a [Groq API key](https://console.groq.com/keys).
+4. Add a role, topics, and audience. PDF profile import is optional.
+5. Optionally enable public research sources as you use Idea search.
+
+Provider keys are encrypted at rest with AES-256-GCM and a non-exportable device key before being placed in Chrome extension storage. They are excluded from exports, diagnostics, and History. Encryption at rest is not a defense against a compromised browser or operating system.
+
+## Reply workflow
+
+1. Open LinkedIn and make sure the post and discussion you want analyzed are already visible in the DOM.
+2. Right-click inside the post, comment, or reply you intend to answer.
+3. Select **Draft a reply with Thoughtline** from Chrome's menu.
+4. Thoughtline opens the side panel, validates a bounded content envelope, and runs Gemini with Groq fallback.
+5. Review the summary and warning, switch among four directions, edit the selected text, rate or regenerate it, and copy it.
+6. Paste and publish manually on LinkedIn.
+
+For a post target, visible rendered threads inside that post are included. For a comment or reply target, only its rendered parent thread is included. Hidden, collapsed, paginated, and unloaded content is excluded.
+
+## Privacy and safety
+
+- No LinkedIn automation, posting, scrolling, clicking, or hidden-content expansion.
+- No raw HTML or DOM is sent to an AI provider.
+- Names and visible text are kept because the user authorized analysis of that context.
+- Untrusted source text is normalized, bounded, Zod-validated, and separated from trusted instructions; it is not treated as an instruction.
+- AI work is sent directly to Gemini and, only on an eligible failure, once to Groq.
+- History uses `chrome.storage.local`; session work and the global job lease use `chrome.storage.session`.
+- Incognito mode uses split storage and does not persist work to History.
+- No analytics or remote telemetry is included.
+- Public-source permissions are optional and requested on demand. Turning a source off stops its use without revoking its existing Chrome permission.
+- Schedule controls are non-operational preview UI and do not claim a running schedule.
+
+See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the complete boundaries.
+
+## Development
+
+### Requirements
+
+- Node.js 24+
+- pnpm 11.7+
+- Chrome/Chromium 120+
+
+### Start and build
 
 ```bash
 pnpm install
 pnpm dev
+pnpm build
 ```
 
-For a production build:
+For live UI development, run `pnpm dev`. WXT opens a development browser with Thoughtline loaded and automatically refreshes the extension when source files change. If you prefer your existing Chrome profile, load `.output/chrome-mv3-dev` once while `pnpm dev` is running; keep the dev server running for subsequent updates.
+
+Load `.output/chrome-mv3` only for a production-build smoke test. Changes in that directory require `pnpm build` followed by an extension reload, so it is not the live-development target.
+
+### Quality gates
 
 ```bash
-pnpm check
-```
-
-Load `.output` from `chrome://extensions` with Developer mode enabled. Complete onboarding, then reload any LinkedIn tabs that were open before installation if necessary.
-
-Useful commands:
-
-```bash
-pnpm typecheck
+pnpm format:check
 pnpm lint
+pnpm typecheck
 pnpm test
 pnpm test:e2e
-pnpm build
-pnpm zip
+pnpm test:prototype
+pnpm test:journey
+pnpm test:ai
+pnpm check
+pnpm release:zip
 ```
 
-The unit and contract fixtures are synthetic and contain no scraped LinkedIn data. Browser tests mock neither LinkedIn nor Gemini; they smoke-test only the packaged extension shell. Live LinkedIn and live Gemini checks are manual private-beta steps and should use a test account and low-risk content.
+`pnpm test:e2e` launches the packed Manifest V3 extension in Chromium, checks responsive navigation at 400px and 320px, runs Axe against all five views, and compares production UI screenshots. Unit tests cover extraction boundaries, untrusted envelopes, encrypted credentials, provider fallback, storage migration/recovery/retention, data archives, and feedback behavior. See [tests/TEST-PLAN.md](tests/TEST-PLAN.md) for the approved-prototype contract, real-writer journey matrix, and AI quality gates.
 
-## Gemini configuration
+Husky runs `lint-staged` before commits after the project is installed inside a Git checkout. CI repeats the full static, unit, production-build, browser, accessibility, and visual checks.
 
-Create a Gemini API key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it into the Gemini connection step. The in-product **How to get a Gemini API key** guide provides the same short path without requiring users to leave setup first.
+## Architecture
 
-The model registry lives in `src/application/models.ts`:
+```text
+entrypoints/                  WXT background, LinkedIn content, onboarding, side panel
+src/domain/                  Zod schemas, invariants, and domain types
+src/application/             Workflows, ports, feedback, archive, provider orchestration
+src/infrastructure/          Chrome storage, credential vault, providers, source adapters
+src/content/                 Passive LinkedIn DOM extraction
+src/ui/                      React features, hooks, local shadcn-style Radix primitives
+tests/unit/                  Boundary and behavior tests
+tests/e2e/                   Packed-extension visual, responsive, and accessibility tests
+prototypes/                  Immutable, numbered prototype history
+docs/adr/                    Architectural decision records
+```
 
-| Purpose     | Primary model      | Quota fallback          |
-| ----------- | ------------------ | ----------------------- |
-| Drafting    | `gemini-3.5-flash` | `gemini-3.1-flash-lite` |
-| Profile PDF | `gemini-3.5-flash` | `gemini-3.1-flash-lite` |
+The feature code depends on typed ports rather than provider-specific response shapes. Gemini and Groq share the same validated request contract, so another provider can be introduced by implementing `DraftingProvider`. Source research follows the same adapter boundary. Shared UI primitives use Tailwind CSS v4 and Radix; there is no component-level vanilla CSS.
 
-Both configured models support free-tier input and output usage; the extension does not route users to a paid-only model. Credential checks list one model without generating content. Draft and profile generation call the Gemini `generateContent` REST endpoint directly and request JSON output with minimal thinking. Provider output is validated locally before it is shown or stored. Gemini 3.1 Flash-Lite is attempted only after Gemini explicitly returns a quota or rate-limit response; network errors, timeouts, authentication failures, and malformed responses never trigger a second generation.
+The domain language and non-negotiable behavior live in [CONTEXT.md](CONTEXT.md). Architectural decisions live in [docs/adr](docs/adr), and [prototypes/reference.json](prototypes/reference.json) always identifies the approved immutable visual contract.
 
-## Discovery configuration
+## Release
 
-Create a project-scoped Groq API key in the [GroqCloud API Keys console](https://console.groq.com/keys), then paste it into Discovery connection. The in-product **How to get a Groq API key** guide explains the flow at the credential field.
+Update the package and extension version, refresh `.github/RELEASE_NOTES.md`, and push a matching `v*` tag:
 
-Discovery is disabled by default and runs only after the user presses **Run discovery**. A valid Groq key and explicit discovery consent are required. Groq uses `openai/gpt-oss-120b`; a normal run assesses candidates and creates up to three automatic drafts in one compact, structured request with a conservative preflight budget below the free 8,000 TPM ceiling. A free-tier rate limit stops the operation without repeated retry or paid-model selection.
+```bash
+VERSION=v0.1.3
+git tag "$VERSION"
+git push origin "$VERSION"
+```
 
-The extension fetches only machine-readable data returned directly by approved source APIs or RSS feeds. It does not crawl linked articles. Source titles, permitted excerpts, tags, age, and aggregate engagement are minimized before Groq transmission; source IDs, URLs, authors, profiles, and full discussions stay out of provider prompts. Stack Overflow contributes question titles, tags, and aggregate metrics only—not bodies, answers, or code.
+The release workflow installs dependencies, runs unit/static/build checks and the real-browser UI suite, creates the WXT Chrome ZIP, generates SHA-256 checksums, and publishes both with the prepared release notes.
 
-If a Groq assessment step fails, the user may explicitly retry that assessment batch with the already-configured Gemini provider. If Groq drafting fails, assessments are preserved and the user may explicitly retry one selected draft with Gemini. No provider switch happens automatically.
+## License
 
-## Privacy and security
-
-See [PRIVACY.md](./PRIVACY.md) for the data inventory and [SECURITY.md](./SECURITY.md) for responsible disclosure.
-
-Important implementation boundaries:
-
-- No complete post or visible discussion is retained after an analysis.
-- Participant names, profile URLs, and IDs are not sent to Gemini.
-- The API key is never exposed to the LinkedIn content script or logs.
-- Groq and Gemini credentials are stored separately and never sent to source sites or content scripts.
-- Credentials remain in protected browser-session storage by default. If device retention is enabled, the extension stores only AES-256-GCM ciphertext in `chrome.storage.local`; the automatically generated, non-exportable encryption key is held separately in the extension origin's IndexedDB vault.
-- Raw profile PDFs and provider profile responses are discarded after an editable profile is derived.
-- Raw discovery evidence is discarded after assessment/drafting; current results retain only source references, tags, assessments, and drafts.
-- Voice samples stay local and are sent to Groq only after the user clicks **Analyze and save voice**.
-- Diagnostic export contains timestamps, event names, and error codes only.
-- LinkedIn text, source evidence, and voice samples are delimited as untrusted data and cannot enable tools or access secrets.
-
-## Contributing
-
-Keep changes inside the documented product boundary. Add or update an ADR when changing a meaningful architectural, privacy, permission, retention, provider, or automation decision. Run `pnpm check` before opening a pull request.
-
-Released under the [MIT License](./LICENSE).
+[MIT](LICENSE)
