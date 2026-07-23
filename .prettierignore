@@ -1,7 +1,8 @@
-node_modules
 .output
 .wxt
 coverage
-playwright-report
+node_modules
 test-results
+playwright-report
 pnpm-lock.yaml
+prototypes

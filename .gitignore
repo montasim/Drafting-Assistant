@@ -1,12 +1,12 @@
-node_modules/
 .output/
 .wxt/
 coverage/
+node_modules/
 playwright-report/
 test-results/
 *.zip
 *.pem
+*.key
 .env
 .env.*
 !.env.example
-pnpm-debug.log*

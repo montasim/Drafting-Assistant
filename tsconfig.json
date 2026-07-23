@@ -1,14 +1,15 @@
 {
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
-    "strict": true,
-    "jsx": "react-jsx",
-    "noUncheckedIndexedAccess": true,
+    "allowJs": false,
     "exactOptionalPropertyTypes": true,
+    "jsx": "react-jsx",
     "noFallthroughCasesInSwitch": true,
     "noImplicitOverride": true,
-    "useUnknownInCatchVariables": true,
-    "types": ["chrome", "vitest/globals", "@testing-library/jest-dom"]
+    "noUncheckedIndexedAccess": true,
+    "strict": true,
+    "types": ["chrome", "vitest/globals", "@testing-library/jest-dom"],
+    "useUnknownInCatchVariables": true
   },
   "include": [
     "entrypoints/**/*.ts",
